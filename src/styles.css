@@ -1,0 +1,167 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+}
+
+/* Warm kitchen palette: paprika and toasted cream. */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.009 72);
+  --foreground: oklch(0.27 0.03 50);
+  --card: oklch(0.998 0.004 72);
+  --card-foreground: oklch(0.27 0.03 50);
+  --popover: oklch(0.998 0.004 72);
+  --popover-foreground: oklch(0.27 0.03 50);
+  --primary: oklch(0.66 0.15 46);
+  --primary-foreground: oklch(0.99 0.006 72);
+  --secondary: oklch(0.94 0.035 72);
+  --secondary-foreground: oklch(0.38 0.08 50);
+  --muted: oklch(0.955 0.016 72);
+  --muted-foreground: oklch(0.52 0.03 56);
+  --accent: oklch(0.9 0.05 76);
+  --accent-foreground: oklch(0.27 0.03 50);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0.004 72);
+  --border: oklch(0.9 0.02 72);
+  --input: oklch(0.92 0.02 72);
+  --ring: oklch(0.66 0.15 46);
+}
+
+.dark {
+  --background: oklch(0.19 0.015 60);
+  --foreground: oklch(0.96 0.008 72);
+  --card: oklch(0.24 0.018 60);
+  --card-foreground: oklch(0.96 0.008 72);
+  --popover: oklch(0.24 0.018 60);
+  --popover-foreground: oklch(0.96 0.008 72);
+  --primary: oklch(0.7 0.15 48);
+  --primary-foreground: oklch(0.2 0.02 50);
+  --secondary: oklch(0.3 0.025 60);
+  --secondary-foreground: oklch(0.96 0.008 72);
+  --muted: oklch(0.3 0.025 60);
+  --muted-foreground: oklch(0.72 0.02 66);
+  --accent: oklch(0.34 0.03 62);
+  --accent-foreground: oklch(0.96 0.008 72);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0.004 72);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.7 0.15 48);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  /*
+   * The layout is sized in rem throughout, so the root font size decides how
+   * big the whole app is. Pin it rather than inheriting the device's display
+   * scaling, which on some Android devices grows the page past the width of
+   * the screen and clips its edges.
+   */
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+/*
+ * Recipe text — both the rendered fields and the editor — is user HTML rather
+ * than Tailwind-classed markup, so the handful of tags it may contain get
+ * their styling here. Preflight strips list markers, which a recipe very much
+ * needs back.
+ */
+@layer components {
+  .rich-text ul {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+  }
+
+  .rich-text ol {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+
+  .rich-text li {
+    margin-block: 0.15rem;
+  }
+
+  .rich-text p {
+    margin-block: 0.4rem;
+  }
+
+  .rich-text > :first-child {
+    margin-block-start: 0;
+  }
+
+  .rich-text > :last-child {
+    margin-block-end: 0;
+  }
+
+  .rich-text b,
+  .rich-text strong {
+    font-weight: 700;
+  }
+
+  .rich-text u {
+    text-decoration: underline;
+  }
+
+  /* Placeholder for the contenteditable editor, which cannot use ::placeholder. */
+  .rich-text[data-empty="true"]::before {
+    content: attr(data-placeholder);
+    display: block;
+    color: var(--color-muted-foreground);
+    pointer-events: none;
+  }
+}
