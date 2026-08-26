@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Star, Trash2 } from "lucide-react";
+import { ChefHat, Pencil, Star, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -16,11 +16,15 @@ import { RichText } from "@/components/RichText";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
 
-/** A section of the recipe. The four field titles are bold, as specified. */
+/**
+ * A section of the recipe. The four field titles are bold, as specified. They
+ * are set larger than the body and given room above, which is all the
+ * separation a page of four sections needs.
+ */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-base font-bold">{title}</h2>
+    <section className="space-y-3">
+      <h2 className="text-lg font-bold">{title}</h2>
       {children}
     </section>
   );
@@ -89,7 +93,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
               aria-pressed={recipe.isFavorite}
               onClick={() => void toggleFavorite(recipe.id)}
             >
-              <Star className={cn(recipe.isFavorite && "fill-primary text-primary")} />
+              <Star className={cn(recipe.isFavorite && "fill-star text-star")} />
             </Button>
 
             {isOwner && (
@@ -116,19 +120,23 @@ export function RecipeViewScreen({ id }: { id: string }) {
         }
       />
 
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-3 py-4">
+      <main className="mx-auto w-full max-w-2xl space-y-8 px-4 py-8 sm:px-6">
         {error && <Notice kind="error">{error}</Notice>}
 
-        {recipe.image_url && (
+        {recipe.image_url ? (
           <img
             src={recipe.image_url}
             alt={recipe.title}
-            className="max-h-80 w-full rounded-xl object-cover"
+            className="max-h-96 w-full rounded-2xl object-cover"
           />
+        ) : (
+          <div className="flex h-32 w-full items-center justify-center rounded-2xl border border-border bg-muted">
+            <ChefHat className="size-8 text-muted-foreground/40" />
+          </div>
         )}
 
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold leading-tight">{recipe.title}</h2>
+        <div className="space-y-3">
+          <h2 className="text-3xl font-bold leading-tight">{recipe.title}</h2>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Avatar name={author} url={recipe.author?.avatar_url} size="sm" />
@@ -140,7 +148,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
               {recipeCategories.map((category) => (
                 <span
                   key={category.id}
-                  className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground"
+                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground"
                 >
                   {category.name}
                 </span>

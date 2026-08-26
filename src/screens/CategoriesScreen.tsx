@@ -42,7 +42,7 @@ export function CategoriesScreen() {
     <div className="min-h-dvh pb-12">
       <ScreenHeader title="ניהול קטגוריות" />
 
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-3 py-4">
+      <main className="mx-auto w-full max-w-2xl space-y-5 px-4 py-8 sm:px-6">
         <div className="flex gap-2">
           <Input
             value={newName}
@@ -121,7 +121,7 @@ export function CategoriesScreen() {
                     </>
                   ) : (
                     <>
-                      <span className="flex-1 truncate">{category.name}</span>
+                      <span className="flex-1 truncate font-medium">{category.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {count === 1 ? "מתכון אחד" : `${count} מתכונים`}
                       </span>

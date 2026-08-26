@@ -58,10 +58,10 @@ export function CategoryPicker({
                 aria-pressed={active}
                 onClick={() => toggle(category.id)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
                   active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                    ? "border-primary bg-primary font-medium text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground",
                 )}
               >
                 {active && <Check className="size-3.5" />}

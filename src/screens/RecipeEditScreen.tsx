@@ -155,7 +155,7 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     <div className="min-h-dvh pb-12">
       <ScreenHeader title={id ? "עריכת מתכון" : "מתכון חדש"} actions={saveButton} />
 
-      <main className="mx-auto w-full max-w-3xl space-y-5 px-3 py-4">
+      <main className="mx-auto w-full max-w-2xl space-y-7 px-4 py-8 sm:px-6">
         {!id && <RecipeImporter onParsed={applyParsed} />}
 
         <div className="space-y-1.5">

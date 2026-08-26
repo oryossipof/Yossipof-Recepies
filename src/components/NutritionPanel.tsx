@@ -3,9 +3,22 @@ import { useState } from "react";
 import type { Nutrition } from "@/integrations/supabase/types";
 import { formatGrams, perPortion } from "@/lib/nutrition";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-// Shows the nutrition of the whole dish, then the same figures divided the
-// ways the AI suggested — and any other way the reader wants to divide it.
+// The nutrition of the whole dish, then the same figures divided the ways the
+// AI suggested — and any other way the reader wants to divide it.
+//
+// No colour and no fills: hairline rules and a single tinted total row are
+// enough structure for four rows, and a striped, shaded table would be the
+// loudest thing on an otherwise quiet page.
+
+const COLUMNS = ["calories", "protein", "fat"] as const;
+
+const HEADINGS: Record<(typeof COLUMNS)[number], string> = {
+  calories: "קלוריות",
+  protein: "חלבון",
+  fat: "שומן",
+};
 
 function Row({
   label,
@@ -17,13 +30,27 @@ function Row({
   emphasis?: boolean;
 }) {
   return (
-    <tr className={emphasis ? "bg-secondary/40 font-semibold" : undefined}>
-      <th scope="row" className="px-3 py-2 text-right font-medium">
+    <tr className={emphasis ? "bg-accent/60" : undefined}>
+      <th
+        scope="row"
+        className={cn(
+          "px-4 py-3 text-right text-sm",
+          emphasis ? "font-semibold" : "font-normal text-muted-foreground",
+        )}
+      >
         {label}
       </th>
-      <td className="px-3 py-2 text-center tabular-nums">{values.calories}</td>
-      <td className="px-3 py-2 text-center tabular-nums">{formatGrams(values.protein)}</td>
-      <td className="px-3 py-2 text-center tabular-nums">{formatGrams(values.fat)}</td>
+      {COLUMNS.map((key) => (
+        <td
+          key={key}
+          className={cn(
+            "px-4 py-3 text-center tabular-nums",
+            emphasis ? "text-base font-semibold" : "text-sm",
+          )}
+        >
+          {key === "calories" ? values.calories : formatGrams(values[key])}
+        </td>
+      ))}
     </tr>
   );
 }
@@ -32,24 +59,22 @@ export function NutritionPanel({ nutrition }: { nutrition: Nutrition }) {
   const [customCount, setCustomCount] = useState("");
   const custom = Number(customCount);
   const showCustom = Number.isFinite(custom) && custom > 1;
+  const customValues = perPortion(nutrition.total, custom);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[22rem] border-collapse text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+      <table className="w-full min-w-[22rem] border-collapse">
         <thead>
-          <tr className="border-b border-border bg-muted/60 text-xs text-muted-foreground">
-            <th scope="col" className="px-3 py-2 text-right font-medium">
+          <tr className="border-b border-border text-xs text-muted-foreground">
+            <th scope="col" className="px-4 py-2.5 text-right font-medium">
               חלוקה
             </th>
-            <th scope="col" className="px-3 py-2 text-center font-medium">
-              קלוריות
-            </th>
-            <th scope="col" className="px-3 py-2 text-center font-medium">
-              חלבון (ג׳)
-            </th>
-            <th scope="col" className="px-3 py-2 text-center font-medium">
-              שומן (ג׳)
-            </th>
+            {COLUMNS.map((key) => (
+              <th key={key} scope="col" className="px-4 py-2.5 text-center font-medium">
+                {HEADINGS[key]}
+                {key !== "calories" && <span className="opacity-70"> (ג׳)</span>}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -70,8 +95,8 @@ export function NutritionPanel({ nutrition }: { nutrition: Nutrition }) {
           ))}
 
           <tr>
-            <th scope="row" className="px-3 py-2 text-right font-medium">
-              <label className="flex items-center gap-2 text-muted-foreground">
+            <th scope="row" className="px-4 py-3 text-right font-normal">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="whitespace-nowrap">חלוקה אחרת ל־</span>
                 <Input
                   type="number"
@@ -80,26 +105,19 @@ export function NutritionPanel({ nutrition }: { nutrition: Nutrition }) {
                   value={customCount}
                   onChange={(e) => setCustomCount(e.target.value)}
                   placeholder="מס׳"
-                  className="h-8 w-20"
+                  className="h-8 w-16 text-center"
                 />
-                <span>חלקים</span>
               </label>
             </th>
             {showCustom ? (
-              <>
-                <td className="px-3 py-2 text-center tabular-nums">
-                  {perPortion(nutrition.total, custom).calories}
+              COLUMNS.map((key) => (
+                <td key={key} className="px-4 py-3 text-center text-sm tabular-nums">
+                  {key === "calories" ? customValues.calories : formatGrams(customValues[key])}
                 </td>
-                <td className="px-3 py-2 text-center tabular-nums">
-                  {formatGrams(perPortion(nutrition.total, custom).protein)}
-                </td>
-                <td className="px-3 py-2 text-center tabular-nums">
-                  {formatGrams(perPortion(nutrition.total, custom).fat)}
-                </td>
-              </>
+              ))
             ) : (
-              <td colSpan={3} className="px-3 py-2 text-center text-xs text-muted-foreground">
-                הזינו מספר חלקים
+              <td colSpan={3} className="px-4 py-3 text-center text-xs text-muted-foreground">
+                —
               </td>
             )}
           </tr>

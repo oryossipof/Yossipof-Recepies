@@ -19,8 +19,8 @@ export default defineConfig({
         scope: "/",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#fdf8f3",
-        theme_color: "#e07a3f",
+        background_color: "#f7f9fb",
+        theme_color: "#f7f9fb",
         lang: "he",
         dir: "rtl",
         icons: [
@@ -42,6 +42,17 @@ export default defineConfig({
               cacheName: "supabase-data",
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Google Fonts: cache-first and long-lived, so an installed app
+            // keeps its typeface with no network.
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts",
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

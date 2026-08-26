@@ -108,7 +108,7 @@ export function ProfileScreen() {
     <div className="min-h-dvh pb-12">
       <ScreenHeader title="הגדרות משתמש" />
 
-      <main className="mx-auto w-full max-w-2xl space-y-6 px-3 py-4">
+      <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
         <section className="space-y-4 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center gap-4">
             <Avatar name={name || user?.email} url={profile?.avatar_url} size="lg" />

@@ -62,14 +62,17 @@ export function AuthScreen() {
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm space-y-6">
         <header className="space-y-2 text-center">
-          <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <ChefHat className="size-7" />
+          <span className="inline-flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <ChefHat className="size-8" />
           </span>
-          <h1 className="text-2xl font-bold">מתכונים</h1>
+          <h1 className="text-3xl font-bold tracking-tight">מתכונים</h1>
           <p className="text-sm text-muted-foreground">ספר המתכונים המשותף שלנו</p>
         </header>
 
-        <form onSubmit={submit} className="space-y-4 rounded-xl border border-border bg-card p-4">
+        <form
+          onSubmit={submit}
+          className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-lg"
+        >
           <h2 className="text-lg font-semibold">{TITLES[mode]}</h2>
 
           {mode === "signup" && (

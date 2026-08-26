@@ -7,6 +7,11 @@
 /*
  * Design system definition.
  *
+ * The look is deliberately quiet: a near-white ground, one blue accent, and
+ * space doing most of the work. Colour is a guest here — it appears on the
+ * primary action, the favourite star, and almost nowhere else, so that a
+ * recipe photo is the brightest thing on the screen.
+ *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
  *
@@ -19,6 +24,8 @@
  */
 
 @theme inline {
+  --font-sans: "Assistant", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -44,52 +51,67 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+  --color-star: var(--star);
 }
 
-/* Warm kitchen palette: paprika and toasted cream. */
 :root {
-  --radius: 0.75rem;
-  --background: oklch(0.985 0.009 72);
-  --foreground: oklch(0.27 0.03 50);
-  --card: oklch(0.998 0.004 72);
-  --card-foreground: oklch(0.27 0.03 50);
-  --popover: oklch(0.998 0.004 72);
-  --popover-foreground: oklch(0.27 0.03 50);
-  --primary: oklch(0.66 0.15 46);
-  --primary-foreground: oklch(0.99 0.006 72);
-  --secondary: oklch(0.94 0.035 72);
-  --secondary-foreground: oklch(0.38 0.08 50);
-  --muted: oklch(0.955 0.016 72);
-  --muted-foreground: oklch(0.52 0.03 56);
-  --accent: oklch(0.9 0.05 76);
-  --accent-foreground: oklch(0.27 0.03 50);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.004 72);
-  --border: oklch(0.9 0.02 72);
-  --input: oklch(0.92 0.02 72);
-  --ring: oklch(0.66 0.15 46);
+  --radius: 0.85rem;
+
+  /* Not pure white — a breath of blue keeps large light areas from glaring. */
+  --background: oklch(0.988 0.004 235);
+  --foreground: oklch(0.24 0.015 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.015 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.015 250);
+
+  /* The one accent: a calm sky blue, dark enough to carry white text. */
+  --primary: oklch(0.62 0.126 240);
+  --primary-foreground: oklch(0.995 0.002 235);
+
+  --secondary: oklch(0.955 0.012 235);
+  --secondary-foreground: oklch(0.36 0.04 245);
+  --muted: oklch(0.965 0.006 235);
+  --muted-foreground: oklch(0.55 0.018 245);
+  --accent: oklch(0.95 0.022 238);
+  --accent-foreground: oklch(0.4 0.07 242);
+
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.99 0.002 235);
+
+  --border: oklch(0.925 0.006 240);
+  --input: oklch(0.9 0.008 240);
+  --ring: oklch(0.62 0.126 240);
+
+  --star: oklch(0.72 0.14 75);
 }
 
 .dark {
-  --background: oklch(0.19 0.015 60);
-  --foreground: oklch(0.96 0.008 72);
-  --card: oklch(0.24 0.018 60);
-  --card-foreground: oklch(0.96 0.008 72);
-  --popover: oklch(0.24 0.018 60);
-  --popover-foreground: oklch(0.96 0.008 72);
-  --primary: oklch(0.7 0.15 48);
-  --primary-foreground: oklch(0.2 0.02 50);
-  --secondary: oklch(0.3 0.025 60);
-  --secondary-foreground: oklch(0.96 0.008 72);
-  --muted: oklch(0.3 0.025 60);
-  --muted-foreground: oklch(0.72 0.02 66);
-  --accent: oklch(0.34 0.03 62);
-  --accent-foreground: oklch(0.96 0.008 72);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0.004 72);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.7 0.15 48);
+  --background: oklch(0.19 0.012 250);
+  --foreground: oklch(0.96 0.004 235);
+  --card: oklch(0.235 0.014 250);
+  --card-foreground: oklch(0.96 0.004 235);
+  --popover: oklch(0.235 0.014 250);
+  --popover-foreground: oklch(0.96 0.004 235);
+
+  --primary: oklch(0.7 0.12 238);
+  --primary-foreground: oklch(0.18 0.02 250);
+
+  --secondary: oklch(0.29 0.018 250);
+  --secondary-foreground: oklch(0.96 0.004 235);
+  --muted: oklch(0.28 0.016 250);
+  --muted-foreground: oklch(0.72 0.014 240);
+  --accent: oklch(0.32 0.03 242);
+  --accent-foreground: oklch(0.93 0.02 238);
+
+  --destructive: oklch(0.68 0.18 25);
+  --destructive-foreground: oklch(0.99 0.002 235);
+
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.7 0.12 238);
+
+  --star: oklch(0.8 0.14 78);
 }
 
 @layer base {
@@ -112,6 +134,18 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    /* Assistant is a touch light at small sizes; this evens it out. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headings carry the hierarchy, so give them room and a tighter set. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
   }
 }
 
@@ -122,22 +156,31 @@
  * needs back.
  */
 @layer components {
+  .rich-text {
+    line-height: 1.75;
+  }
+
   .rich-text ul {
     list-style: disc;
-    padding-inline-start: 1.5rem;
+    padding-inline-start: 1.35rem;
   }
 
   .rich-text ol {
     list-style: decimal;
-    padding-inline-start: 1.5rem;
+    padding-inline-start: 1.35rem;
   }
 
   .rich-text li {
-    margin-block: 0.15rem;
+    margin-block: 0.3rem;
+    padding-inline-start: 0.15rem;
+  }
+
+  .rich-text li::marker {
+    color: var(--color-muted-foreground);
   }
 
   .rich-text p {
-    margin-block: 0.4rem;
+    margin-block: 0.55rem;
   }
 
   .rich-text > :first-child {
@@ -150,11 +193,13 @@
 
   .rich-text b,
   .rich-text strong {
-    font-weight: 700;
+    font-weight: 600;
+    color: var(--color-foreground);
   }
 
   .rich-text u {
     text-decoration: underline;
+    text-underline-offset: 0.15em;
   }
 
   /* Placeholder for the contenteditable editor, which cannot use ::placeholder. */

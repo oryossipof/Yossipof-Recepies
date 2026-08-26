@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChefHat, ListFilter, Plus, Search, Star, Tags, X } from "lucide-react";
+import { Plus, Search, Settings2, Star, Tags, X } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -12,7 +12,6 @@ import { Avatar } from "@/components/Avatar";
 import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** The main screen: every recipe, as tiles, with search and filters above. */
@@ -49,15 +48,14 @@ export function HomeScreen() {
     });
   }, [recipes, query, categoryId, favoritesOnly]);
 
+  const filtering = favoritesOnly || categoryId !== null || query.trim().length > 0;
+
   return (
-    <div className="min-h-dvh pb-10">
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto w-full max-w-5xl space-y-2 px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ChefHat className="size-4.5" />
-            </span>
-            <h1 className="flex-1 text-lg font-bold">מתכונים</h1>
+    <div className="min-h-dvh pb-16">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-3">
+            <h1 className="flex-1 text-2xl font-bold tracking-tight">מתכונים</h1>
 
             <Button
               variant="ghost"
@@ -65,6 +63,7 @@ export function HomeScreen() {
               aria-label="ניהול קטגוריות"
               title="ניהול קטגוריות"
               onClick={() => navigate("/categories")}
+              className="text-muted-foreground"
             >
               <Tags />
             </Button>
@@ -73,7 +72,7 @@ export function HomeScreen() {
               aria-label="הגדרות משתמש"
               title={profile?.display_name ?? "הגדרות משתמש"}
               onClick={() => navigate("/profile")}
-              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar
                 name={profile?.display_name ?? user?.email}
@@ -84,82 +83,84 @@ export function HomeScreen() {
           </div>
 
           {/* Search and "add recipe" sit side by side, as asked. */}
-          <div className="flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <Search className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="חיפוש מתכון"
                 aria-label="חיפוש מתכון"
-                className="h-10 pr-9"
+                className="h-11 w-full rounded-full border border-input bg-card px-11 text-base transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               {query && (
                 <button
                   type="button"
                   aria-label="ניקוי החיפוש"
                   onClick={() => setQuery("")}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
               )}
             </div>
 
-            <Button
-              size="icon"
+            <button
+              type="button"
               aria-label="הוספת מתכון"
               title="הוספת מתכון"
               onClick={() => navigate("/new")}
-              className="size-10 shrink-0"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <Plus className="size-5" />
-            </Button>
+            </button>
           </div>
+        </div>
+      </header>
 
-          <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
-            <FilterChip
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+        {(categories.length > 0 || favoritesOnly) && (
+          <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
+            <Chip
               active={favoritesOnly}
               onClick={() => setFavoritesOnly((v) => !v)}
-              icon={<Star className={cn("size-3.5", favoritesOnly && "fill-current")} />}
+              icon={
+                <Star
+                  className={cn("size-3.5", favoritesOnly ? "fill-current" : "text-star")}
+                />
+              }
             >
               מועדפים
-            </FilterChip>
+            </Chip>
 
-            <FilterChip
-              active={categoryId === null}
-              onClick={() => setCategoryId(null)}
-              icon={<ListFilter className="size-3.5" />}
-            >
+            <Chip active={categoryId === null} onClick={() => setCategoryId(null)}>
               הכל
-            </FilterChip>
+            </Chip>
 
             {categories.map((category) => (
-              <FilterChip
+              <Chip
                 key={category.id}
                 active={categoryId === category.id}
                 onClick={() => setCategoryId(categoryId === category.id ? null : category.id)}
               >
                 {category.name}
-              </FilterChip>
+              </Chip>
             ))}
           </div>
-        </div>
-      </header>
+        )}
 
-      <main className="mx-auto w-full max-w-5xl px-3 py-4">
         {error && <Notice kind="error">{error}</Notice>}
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 6 }, (_, i) => (
-              <Skeleton key={i} className="aspect-[3/4] w-full rounded-xl" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+            {Array.from({ length: 8 }, (_, i) => (
+              <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <EmptyState hasRecipes={recipes.length > 0} />
+          <EmptyState filtering={filtering} />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
             {visible.map((recipe) => (
               <RecipeCard key={recipe.id} recipe={recipe} onToggleFavorite={toggleFavorite} />
             ))}
@@ -170,7 +171,7 @@ export function HomeScreen() {
   );
 }
 
-function FilterChip({
+function Chip({
   active,
   onClick,
   icon,
@@ -187,10 +188,10 @@ function FilterChip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-sm transition-colors",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
         active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          ? "border-primary bg-primary font-medium text-primary-foreground"
+          : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
       )}
     >
       {icon}
@@ -199,15 +200,17 @@ function FilterChip({
   );
 }
 
-function EmptyState({ hasRecipes }: { hasRecipes: boolean }) {
+function EmptyState({ filtering }: { filtering: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
-      <ChefHat className="size-10 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
-        {hasRecipes ? "אין מתכונים שמתאימים לחיפוש" : "עדיין אין מתכונים"}
+    <div className="flex flex-col items-center gap-4 py-24 text-center">
+      <span className="inline-flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Settings2 className="size-5" />
+      </span>
+      <p className="text-[0.95rem] text-muted-foreground">
+        {filtering ? "אין מתכונים שמתאימים לסינון" : "עדיין אין מתכונים"}
       </p>
-      {!hasRecipes && (
-        <Button onClick={() => navigate("/new")}>
+      {!filtering && (
+        <Button onClick={() => navigate("/new")} className="mt-1">
           <Plus />
           הוספת המתכון הראשון
         </Button>
