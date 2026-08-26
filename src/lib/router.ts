@@ -34,9 +34,22 @@ function parse(hash: string): Route {
   }
 }
 
-export function navigate(path: string): void {
+/**
+ * `replace` swaps the current history entry instead of adding one. Used after
+ * saving a recipe: the editor should not be somewhere "back" can return to,
+ * since going back into a form that has already been submitted is confusing
+ * and invites a double save.
+ */
+export function navigate(path: string, options?: { replace?: boolean }): void {
   const next = path.startsWith("#") ? path : `#${path}`;
   if (window.location.hash === next) return;
+
+  if (options?.replace) {
+    const { pathname, search } = window.location;
+    window.location.replace(`${pathname}${search}${next}`);
+    return;
+  }
+
   window.location.hash = next;
 }
 

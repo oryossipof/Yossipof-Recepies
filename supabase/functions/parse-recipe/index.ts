@@ -191,19 +191,57 @@ async function callModel(apiKey: string, model: string, source: Source): Promise
   );
 }
 
-async function callGemini(apiKey: string, source: Source): Promise<string> {
-  let res = await callModel(apiKey, GEMINI_MODEL, source);
-  // An account without the preferred model enabled answers 404; the lite model
-  // is the safe floor.
-  if (res.status === 404 && GEMINI_MODEL !== GEMINI_FALLBACK_MODEL) {
-    res = await callModel(apiKey, GEMINI_FALLBACK_MODEL, source);
-  }
-  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`);
+/** Statuses worth another go: overload and rate limiting, not bad requests. */
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== "string") throw new Error("Gemini returned no content");
-  return text;
+const ATTEMPTS_PER_MODEL = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Asks the preferred model, then the lite one, giving each a few attempts with
+ * a growing pause in between. Gemini answers 503 "high demand" often enough
+ * that a single attempt would make the app look broken when it is only busy;
+ * a 404 means the model is not available to this account at all, so that one
+ * moves straight on to the fallback.
+ */
+async function callGemini(apiKey: string, source: Source): Promise<string> {
+  const models =
+    GEMINI_MODEL === GEMINI_FALLBACK_MODEL
+      ? [GEMINI_MODEL]
+      : [GEMINI_MODEL, GEMINI_FALLBACK_MODEL];
+
+  let overloaded = false;
+
+  for (const model of models) {
+    for (let attempt = 0; attempt < ATTEMPTS_PER_MODEL; attempt++) {
+      const res = await callModel(apiKey, model, source);
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof text !== "string") throw new Error("Gemini returned no content");
+        return text;
+      }
+
+      const detail = `${model} ${res.status}: ${await res.text()}`;
+      console.error("parse-recipe gemini attempt failed:", detail);
+
+      if (res.status === 404) break;
+      if (!RETRYABLE.has(res.status)) throw new Error(`Gemini error ${detail}`);
+
+      overloaded = true;
+      await sleep(800 * (attempt + 1));
+    }
+  }
+
+  throw new Error(
+    overloaded
+      ? "שירות ה-AI עמוס כרגע. נסו שוב בעוד רגע, או מלאו את השדות ידנית."
+      : "שירות ה-AI אינו זמין כרגע.",
+  );
 }
 
 // ------------------------------------------------------------------

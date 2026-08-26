@@ -108,11 +108,13 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     setSaving(true);
     setError(null);
     try {
+      // Replace rather than push: "back" from the saved recipe should reach the
+      // list, not return to a form that has already been submitted.
       if (id) {
         await updateRecipe(id, input);
-        navigate(`/recipe/${id}`);
+        navigate(`/recipe/${id}`, { replace: true });
       } else {
-        navigate(`/recipe/${await createRecipe(input)}`);
+        navigate(`/recipe/${await createRecipe(input)}`, { replace: true });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "שמירת המתכון נכשלה");

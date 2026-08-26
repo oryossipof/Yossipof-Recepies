@@ -123,7 +123,7 @@ export function CategoriesScreen() {
                     <>
                       <span className="flex-1 truncate">{category.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {count} מתכונים
+                        {count === 1 ? "מתכון אחד" : `${count} מתכונים`}
                       </span>
                       <Button
                         variant="ghost"

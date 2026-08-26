@@ -55,10 +55,16 @@ export function NutritionPanel({ nutrition }: { nutrition: Nutrition }) {
         <tbody className="divide-y divide-border">
           <Row label={nutrition.total_label} values={nutrition.total} emphasis />
 
+          {/*
+            "1 מתוך 8 מנות" rather than a singular form of the label: Hebrew
+            plurals do not reduce by rule (מנות → מנה, חתיכות → חתיכה,
+            כדורים → כדור), and the model supplies the label, so any attempt to
+            singularise it mechanically produces nonsense for some recipe.
+          */}
           {nutrition.divisions.map((division) => (
             <Row
               key={`${division.label}-${division.count}`}
-              label={`${division.count} ${division.label} — ל${division.label.replace(/ים$/, "")} אחד`}
+              label={`1 מתוך ${division.count} ${division.label}`}
               values={perPortion(nutrition.total, division.count)}
             />
           ))}
