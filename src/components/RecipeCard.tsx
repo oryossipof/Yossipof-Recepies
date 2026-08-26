@@ -1,4 +1,4 @@
-import { ChefHat, Star } from "lucide-react";
+import { Star } from "lucide-react";
 
 import type { RecipeWithMeta } from "@/hooks/use-recipes";
 import { navigate } from "@/lib/router";
@@ -39,7 +39,9 @@ export function RecipeCard({
             />
           ) : (
             <div className="flex size-full items-center justify-center">
-              <ChefHat className="size-7 text-muted-foreground/40" />
+              <span className="text-4xl opacity-45" aria-hidden>
+                🥘
+              </span>
             </div>
           )}
         </div>

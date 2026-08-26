@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Settings2, Star, Tags, X } from "lucide-react";
+import { Plus, Search, Star, Tags, X } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -53,9 +53,12 @@ export function HomeScreen() {
   return (
     <div className="min-h-dvh pb-16">
       <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6">
+        <div className="mx-auto w-full max-w-lg px-4 py-3 sm:max-w-2xl sm:px-6 lg:max-w-5xl lg:px-8 xl:max-w-6xl">
           <div className="flex items-center gap-3">
-            <h1 className="flex-1 text-2xl font-bold tracking-tight">מתכונים</h1>
+            <span className="text-2xl" aria-hidden>
+              🍲
+            </span>
+            <h1 className="flex-1 text-xl font-bold tracking-tight">מתכונים</h1>
 
             <Button
               variant="ghost"
@@ -118,9 +121,9 @@ export function HomeScreen() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+      <main className="mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:px-6 lg:max-w-5xl lg:px-8 xl:max-w-6xl">
         {(categories.length > 0 || favoritesOnly) && (
-          <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
+          <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
             <Chip
               active={favoritesOnly}
               onClick={() => setFavoritesOnly((v) => !v)}
@@ -188,10 +191,10 @@ function Chip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
+        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
         active
           ? "border-primary bg-primary font-medium text-primary-foreground"
-          : "border-border bg-card text-muted-foreground hover:border-input hover:text-foreground",
+          : "border-border bg-card text-foreground hover:bg-accent/30",
       )}
     >
       {icon}
@@ -202,12 +205,15 @@ function Chip({
 
 function EmptyState({ filtering }: { filtering: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-4 py-24 text-center">
-      <span className="inline-flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Settings2 className="size-5" />
+    <div className="space-y-3 py-16 text-center">
+      <span className="block text-5xl" aria-hidden>
+        {filtering ? "🔍" : "🍲"}
       </span>
-      <p className="text-[0.95rem] text-muted-foreground">
-        {filtering ? "אין מתכונים שמתאימים לסינון" : "עדיין אין מתכונים"}
+      <p className="text-lg font-medium">
+        {filtering ? "לא נמצאו מתכונים" : "עדיין אין מתכונים"}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {filtering ? "נסו חיפוש או סינון אחר" : "הוסיפו את הראשון עם הכפתור למעלה"}
       </p>
       {!filtering && (
         <Button onClick={() => navigate("/new")} className="mt-1">

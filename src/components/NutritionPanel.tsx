@@ -30,7 +30,7 @@ function Row({
   emphasis?: boolean;
 }) {
   return (
-    <tr className={emphasis ? "bg-accent/60" : undefined}>
+    <tr className={emphasis ? "bg-primary/10" : undefined}>
       <th
         scope="row"
         className={cn(

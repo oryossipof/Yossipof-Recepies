@@ -7,10 +7,11 @@
 /*
  * Design system definition.
  *
- * The look is deliberately quiet: a near-white ground, one blue accent, and
- * space doing most of the work. Colour is a guest here — it appears on the
- * primary action, the favourite star, and almost nowhere else, so that a
- * recipe photo is the brightest thing on the screen.
+ * The palette is the shopping list app's, on purpose: the two apps belong to
+ * the same household and sit next to each other on the same home screen, so
+ * the sky blue, the soft radius and the emoji-as-anchor habit carry over. What
+ * does not carry over is that app's density — a recipe is read while cooking,
+ * so the type here stays large.
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
@@ -55,63 +56,52 @@
 }
 
 :root {
-  --radius: 0.85rem;
+  --radius: 0.75rem;
+  --background: oklch(0.98 0.01 220);
+  --foreground: oklch(0.25 0.04 240);
+  --card: oklch(0.995 0.005 220);
+  --card-foreground: oklch(0.25 0.04 240);
+  --popover: oklch(0.995 0.005 220);
+  --popover-foreground: oklch(0.25 0.04 240);
+  --primary: oklch(0.68 0.14 230);
+  --primary-foreground: oklch(0.99 0.005 220);
+  --secondary: oklch(0.93 0.04 220);
+  --secondary-foreground: oklch(0.35 0.1 235);
+  --muted: oklch(0.95 0.015 220);
+  --muted-foreground: oklch(0.5 0.03 235);
+  --accent: oklch(0.8 0.11 210);
+  --accent-foreground: oklch(0.25 0.04 240);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.9 0.02 220);
+  --input: oklch(0.92 0.02 220);
+  --ring: oklch(0.68 0.14 230);
 
-  /* Not pure white — a breath of blue keeps large light areas from glaring. */
-  --background: oklch(0.988 0.004 235);
-  --foreground: oklch(0.24 0.015 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.015 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.015 250);
-
-  /* The one accent: a calm sky blue, dark enough to carry white text. */
-  --primary: oklch(0.62 0.126 240);
-  --primary-foreground: oklch(0.995 0.002 235);
-
-  --secondary: oklch(0.955 0.012 235);
-  --secondary-foreground: oklch(0.36 0.04 245);
-  --muted: oklch(0.965 0.006 235);
-  --muted-foreground: oklch(0.55 0.018 245);
-  --accent: oklch(0.95 0.022 238);
-  --accent-foreground: oklch(0.4 0.07 242);
-
-  --destructive: oklch(0.58 0.2 25);
-  --destructive-foreground: oklch(0.99 0.002 235);
-
-  --border: oklch(0.925 0.006 240);
-  --input: oklch(0.9 0.008 240);
-  --ring: oklch(0.62 0.126 240);
-
-  --star: oklch(0.72 0.14 75);
+  --star: oklch(0.75 0.15 78);
 }
 
 .dark {
-  --background: oklch(0.19 0.012 250);
-  --foreground: oklch(0.96 0.004 235);
-  --card: oklch(0.235 0.014 250);
-  --card-foreground: oklch(0.96 0.004 235);
-  --popover: oklch(0.235 0.014 250);
-  --popover-foreground: oklch(0.96 0.004 235);
-
-  --primary: oklch(0.7 0.12 238);
-  --primary-foreground: oklch(0.18 0.02 250);
-
-  --secondary: oklch(0.29 0.018 250);
-  --secondary-foreground: oklch(0.96 0.004 235);
-  --muted: oklch(0.28 0.016 250);
-  --muted-foreground: oklch(0.72 0.014 240);
-  --accent: oklch(0.32 0.03 242);
-  --accent-foreground: oklch(0.93 0.02 238);
-
-  --destructive: oklch(0.68 0.18 25);
-  --destructive-foreground: oklch(0.99 0.002 235);
-
-  --border: oklch(1 0 0 / 11%);
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.72 0.13 232);
+  --primary-foreground: oklch(0.15 0.03 250);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.32 0.05 258);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.12 238);
+  --ring: oklch(0.72 0.13 232);
 
-  --star: oklch(0.8 0.14 78);
+  --star: oklch(0.82 0.15 80);
 }
 
 @layer base {

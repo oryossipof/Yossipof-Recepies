@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChefHat, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { sendPasswordReset, signIn, signUp } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -62,8 +62,8 @@ export function AuthScreen() {
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm space-y-6">
         <header className="space-y-2 text-center">
-          <span className="inline-flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <ChefHat className="size-8" />
+          <span className="block text-5xl" aria-hidden>
+            🍲
           </span>
           <h1 className="text-3xl font-bold tracking-tight">מתכונים</h1>
           <p className="text-sm text-muted-foreground">ספר המתכונים המשותף שלנו</p>

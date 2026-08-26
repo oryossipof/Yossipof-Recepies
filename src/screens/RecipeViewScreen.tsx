@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChefHat, Pencil, Star, Trash2 } from "lucide-react";
+import { Pencil, Star, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -17,14 +17,26 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
 
 /**
- * A section of the recipe. The four field titles are bold, as specified. They
- * are set larger than the body and given room above, which is all the
- * separation a page of four sections needs.
+ * A section of the recipe. The four field titles are bold, as specified, and
+ * each is anchored by an emoji — the same trick the shopping list uses for its
+ * category headings, and the fastest way to find "רכיבים" on a phone propped
+ * against a mixing bowl.
  */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  emoji,
+  title,
+  children,
+}: {
+  emoji: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className="flex items-center gap-2 text-lg font-bold">
+        <span aria-hidden>{emoji}</span>
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -131,7 +143,9 @@ export function RecipeViewScreen({ id }: { id: string }) {
           />
         ) : (
           <div className="flex h-32 w-full items-center justify-center rounded-2xl border border-border bg-muted">
-            <ChefHat className="size-8 text-muted-foreground/40" />
+            <span className="text-5xl opacity-45" aria-hidden>
+              🥘
+            </span>
           </div>
         )}
 
@@ -157,22 +171,22 @@ export function RecipeViewScreen({ id }: { id: string }) {
           )}
         </div>
 
-        <Section title="רכיבים">
+        <Section emoji="🧾" title="רכיבים">
           <RichText html={recipe.ingredients_html} />
         </Section>
 
-        <Section title="אופן ההכנה">
+        <Section emoji="👩‍🍳" title="אופן ההכנה">
           <RichText html={recipe.instructions_html} />
         </Section>
 
         {!isBlankHtml(recipe.notes_html) && (
-          <Section title="הערות">
+          <Section emoji="💡" title="הערות">
             <RichText html={recipe.notes_html} />
           </Section>
         )}
 
         {!isEmptyNutrition(recipe.nutrition) && recipe.nutrition && (
-          <Section title="ערכים תזונתיים">
+          <Section emoji="🔥" title="ערכים תזונתיים">
             <NutritionPanel nutrition={recipe.nutrition} />
             <p className="text-xs text-muted-foreground">
               הערכה בלבד, מחושבת על ידי ה-AI לפי הרכיבים והכמויות.
