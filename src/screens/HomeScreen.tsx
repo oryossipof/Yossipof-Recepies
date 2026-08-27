@@ -110,7 +110,7 @@ export function HomeScreen() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="חיפוש מתכון"
                 aria-label="חיפוש מתכון"
-                className="h-11 w-full rounded-full border border-input bg-card px-11 text-base transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-12 w-full rounded-full border border-input bg-card px-11 text-base transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
               {query && (
                 <button
@@ -134,9 +134,9 @@ export function HomeScreen() {
               aria-label="הוספת מתכון"
               title="הוספת מתכון"
               onClick={() => navigate("/new")}
-              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-[background-color,box-shadow,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/40 transition-[background-color,box-shadow,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Plus className="size-7" strokeWidth={2.75} />
+              <Plus className="size-8" strokeWidth={3} />
             </button>
           </div>
         </div>

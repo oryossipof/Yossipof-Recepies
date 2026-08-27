@@ -7,13 +7,17 @@
  * file straight from the browser. The token never leaves the device: only the
  * text (or the image bytes) reaches the parsing function.
  *
- * Two build-time values are needed, both from the same Google Cloud project:
+ * Three build-time values are needed, all from the same Google Cloud project:
  *   VITE_GOOGLE_CLIENT_ID  — OAuth 2.0 Web client ID, with this app's origin
  *                            listed under "Authorized JavaScript origins".
  *   VITE_GOOGLE_API_KEY    — API key, used as the picker's developer key.
+ *   VITE_GOOGLE_APP_ID     — the project number, which the picker needs before
+ *                            it can hand a file to a drive.file app.
  * Without them the picker is unavailable and the importer falls back to the
  * old share-link field.
  */
+
+import { docxToHtml, isDocx, isLegacyDoc } from "./docx";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
@@ -265,6 +269,19 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
     `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
     token,
   );
+
+  // A Word file uploaded to Drive is still a Word file: Drive will not export
+  // it, so it is unzipped here exactly like one picked off the disk.
+  if (isDocx(file.name, file.mimeType)) {
+    return { kind: "text", text: docxToHtml(await res.arrayBuffer()) };
+  }
+
+  if (isLegacyDoc(file.name, file.mimeType)) {
+    throw new Error(
+      "הקובץ שמור בפורמט Word הישן (doc.). שמרו אותו מחדש כ-docx, " +
+        "או פתחו אותו ב-Google Docs ובחרו אותו משם.",
+    );
+  }
 
   if (isTextual(file)) {
     const text = (await res.text()).trim();

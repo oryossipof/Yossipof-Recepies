@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Search, Star, X } from "lucide-react";
+import { Check, ChevronDown, Search, Star, Tags, X } from "lucide-react";
 
 import type { Category } from "@/hooks/use-categories";
 import { cn } from "@/lib/utils";
@@ -13,22 +13,19 @@ import {
 } from "@/components/ui/dialog";
 
 /*
- * The category row on the home screen.
+ * The category filter on the home screen.
  *
- * A household collects categories faster than it collects recipes, and a
- * single scrolling strip of them turns into a horizontal haystack. So the row
- * shows only the few categories that actually carry the most recipes — plus
- * every category currently filtering, even a rare one — and hides the rest
- * behind "כל הקטגוריות", where they get a search box, a count each, and room
- * to breathe. With a handful of categories nothing is hidden at all and the
- * row behaves exactly as before.
+ * A household collects categories faster than it collects recipes, so laying
+ * them out as chips does not scale: twenty categories either wrap into a wall
+ * above the recipes or scroll sideways into a haystack. Instead the screen
+ * spends one short line on this — favourites, and a single button that says
+ * how many categories are filtering — and every category lives in the dialog
+ * behind it, with a search box and a recipe count each. The row is the same
+ * height with three categories or with three hundred.
  *
  * Categories are chosen as many at a time as wanted, and a recipe shows if it
  * belongs to any of them.
  */
-
-/** How many categories stay in the row before the rest move into the dialog. */
-const INLINE_LIMIT = 5;
 
 export function CategoryFilter({
   categories,
@@ -60,16 +57,14 @@ export function CategoryFilter({
     [categories, counts],
   );
 
-  const inline = useMemo(() => {
-    // Everything picked from the dialog has to stay visible afterwards,
-    // otherwise the screen looks filtered by nothing at all.
-    const picked = ranked.filter((c) => selected.includes(c.id));
-    const rest = ranked.filter((c) => !selected.includes(c.id) && (counts.get(c.id) ?? 0) > 0);
-
-    return [...picked, ...rest.slice(0, Math.max(INLINE_LIMIT - picked.length, 0))];
-  }, [ranked, counts, selected]);
-
-  const hidden = categories.length - inline.length;
+  /** What the button says: nothing chosen, one name, or how many. */
+  const label = useMemo(() => {
+    if (selected.length === 0) return "קטגוריות";
+    if (selected.length === 1) {
+      return categories.find((c) => c.id === selected[0])?.name ?? "קטגוריה אחת";
+    }
+    return `${selected.length} קטגוריות`;
+  }, [selected, categories]);
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -79,7 +74,7 @@ export function CategoryFilter({
 
   return (
     <>
-      <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      <div className="mb-4 flex items-center gap-1.5">
         <Chip
           active={favoritesOnly}
           onClick={onToggleFavorites}
@@ -88,28 +83,25 @@ export function CategoryFilter({
           מועדפים
         </Chip>
 
-        <Chip active={selected.length === 0} onClick={onClear}>
-          הכל
+        <Chip
+          active={selected.length > 0}
+          onClick={() => setOpen(true)}
+          icon={<Tags className="size-3.5" />}
+        >
+          <span className="max-w-[9rem] truncate">{label}</span>
+          <ChevronDown className="size-3.5 opacity-70" />
         </Chip>
 
-        {inline.map((category) => (
-          <Chip
-            key={category.id}
-            active={selected.includes(category.id)}
-            onClick={() => onToggle(category.id)}
+        {selected.length > 0 && (
+          <button
+            type="button"
+            aria-label="ניקוי הסינון"
+            title="ניקוי הסינון"
+            onClick={onClear}
+            className="text-muted-foreground transition-colors hover:text-foreground"
           >
-            {category.name}
-          </Chip>
-        ))}
-
-        {hidden > 0 && (
-          <Chip
-            active={false}
-            onClick={() => setOpen(true)}
-            icon={<ChevronDown className="size-3.5" />}
-          >
-            עוד {hidden}
-          </Chip>
+            <X className="size-4" />
+          </button>
         )}
       </div>
 

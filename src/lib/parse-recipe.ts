@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
+import { docxToHtml, isDocx, isLegacyDoc } from "./docx";
 import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64 } from "./images";
 import { normalizeNutrition } from "./nutrition";
@@ -88,14 +89,24 @@ export async function parseFromImage(file: File): Promise<ParsedRecipe> {
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|json|html?|rtf)$/i;
 
 /**
- * An uploaded file. Text files are read here; images and PDFs are handed to
- * the model as-is. Word documents are a zip archive and cannot be read without
- * a parser, so the user is pointed at the options that do work.
+ * An uploaded file. Word documents and text files are read here; images and
+ * PDFs are handed to the model as-is.
  */
 export async function parseFromFile(file: File): Promise<ParsedRecipe> {
   if (file.type.startsWith("image/") || file.type === "application/pdf") {
     const { data, mimeType } = await fileToBase64(file);
     return invoke({ kind: "image", data, mimeType });
+  }
+
+  if (isDocx(file.name, file.type)) {
+    return invoke({ kind: "file", text: docxToHtml(await file.arrayBuffer()) });
+  }
+
+  if (isLegacyDoc(file.name, file.type)) {
+    throw new Error(
+      "הקובץ שמור בפורמט Word הישן (doc.). שמרו אותו מחדש כ-docx. " +
+        "או העתיקו והדביקו את המתכון כטקסט.",
+    );
   }
 
   if (file.type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name)) {
@@ -105,7 +116,7 @@ export async function parseFromFile(file: File): Promise<ParsedRecipe> {
   }
 
   throw new Error(
-    "סוג הקובץ אינו נתמך. אפשר להעלות קובץ טקסט, PDF או תמונה — " +
+    "סוג הקובץ אינו נתמך. אפשר להעלות מסמך Word, קובץ טקסט, PDF או תמונה — " +
       "או פשוט להדביק את המתכון כטקסט.",
   );
 }
