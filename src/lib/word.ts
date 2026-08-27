@@ -59,10 +59,28 @@ export function readDocument(buffer: ArrayBuffer): DocumentContent {
     Array.from(bytes.subarray(0, 16), (b) => b.toString(16).padStart(2, "0")).join(" "),
   );
 
+  // A signature that is nearly right is a Word document with damaged bytes —
+  // these files are decades old and have been copied between machines for
+  // most of that time. Saying so beats "unknown format", because the fix is
+  // completely different: recover the file rather than convert it.
+  if (looksDamaged(bytes)) {
+    throw new Error(
+      "נראה שהקובץ פגום — הוא מסמך Word, אבל תחילת הקובץ שגויה. " +
+        "נסו לפתוח אותו ב-Word (שיציע לתקן אותו) ולשמור מחדש כ-docx.",
+    );
+  }
+
   throw new Error(
     "לא זוהה סוג הקובץ. אפשר לפתוח אותו ב-Word ולשמור מחדש כ-docx, " +
       "או להעתיק ולהדביק את המתכון כטקסט.",
   );
+}
+
+/** Close enough to the compound-file signature that the file was one, once. */
+function looksDamaged(bytes: Uint8Array): boolean {
+  const signature = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  const matching = signature.filter((b, i) => bytes[i] === b).length;
+  return matching >= 6;
 }
 
 /**
