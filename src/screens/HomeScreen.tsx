@@ -24,12 +24,14 @@ export function HomeScreen() {
   const [query, setQuery] = useState("");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
 
     return recipes.filter((recipe) => {
       if (favoritesOnly && !recipe.isFavorite) return false;
+      if (mineOnly && recipe.user_id !== user?.id) return false;
 
       // Several categories widen the result rather than narrow it: picking
       // "מאפים" and "בשרי" shows both, which is what a shelf of categories
@@ -53,7 +55,7 @@ export function HomeScreen() {
 
       return haystack.includes(needle);
     });
-  }, [recipes, query, categoryIds, favoritesOnly]);
+  }, [recipes, query, categoryIds, favoritesOnly, mineOnly, user?.id]);
 
   /** How many recipes each category holds — the filter row ranks by it. */
   const categoryCounts = useMemo(() => {
@@ -64,7 +66,8 @@ export function HomeScreen() {
     return counts;
   }, [recipes]);
 
-  const filtering = favoritesOnly || categoryIds.length > 0 || query.trim().length > 0;
+  const filtering =
+    favoritesOnly || mineOnly || categoryIds.length > 0 || query.trim().length > 0;
 
   return (
     <div className="min-h-dvh pb-16">
@@ -143,7 +146,7 @@ export function HomeScreen() {
       </header>
 
       <main className="mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:px-6 lg:max-w-5xl lg:px-8 xl:max-w-6xl">
-        {(categories.length > 0 || favoritesOnly) && (
+        {(categories.length > 0 || favoritesOnly || mineOnly) && (
           <CategoryFilter
             categories={categories}
             counts={categoryCounts}
@@ -156,6 +159,8 @@ export function HomeScreen() {
             onClear={() => setCategoryIds([])}
             favoritesOnly={favoritesOnly}
             onToggleFavorites={() => setFavoritesOnly((v) => !v)}
+            mineOnly={mineOnly}
+            onToggleMine={() => setMineOnly((v) => !v)}
           />
         )}
 

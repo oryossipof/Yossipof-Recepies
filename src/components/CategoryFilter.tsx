@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Search, Star, Tags, X } from "lucide-react";
+import { Check, ChevronDown, ChefHat, Search, Star, Tags, X } from "lucide-react";
 
 import type { Category } from "@/hooks/use-categories";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,8 @@ export function CategoryFilter({
   onClear,
   favoritesOnly,
   onToggleFavorites,
+  mineOnly,
+  onToggleMine,
 }: {
   categories: Category[];
   counts: Map<string, number>;
@@ -43,6 +45,8 @@ export function CategoryFilter({
   onClear: () => void;
   favoritesOnly: boolean;
   onToggleFavorites: () => void;
+  mineOnly: boolean;
+  onToggleMine: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -81,6 +85,10 @@ export function CategoryFilter({
           icon={<Star className={cn("size-3.5", favoritesOnly ? "fill-current" : "text-star")} />}
         >
           מועדפים
+        </Chip>
+
+        <Chip active={mineOnly} onClick={onToggleMine} icon={<ChefHat className="size-3.5" />}>
+          שלי
         </Chip>
 
         <Chip
