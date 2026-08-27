@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
+import { useAuth } from "@/hooks/use-auth";
 import { useRecipes, type RecipeInput } from "@/hooks/use-recipes";
 import type { Nutrition } from "@/integrations/supabase/types";
+import { uploadRecipeImage } from "@/lib/images";
 import { navigate } from "@/lib/router";
 import type { ParsedRecipe, SourceKind } from "@/lib/parse-recipe";
 import { isBlankHtml } from "@/lib/sanitize-html";
@@ -46,12 +48,14 @@ const BLANK: Draft = {
  * the user presses save — the AI only ever fills the form in.
  */
 export function RecipeEditScreen({ id }: { id?: string }) {
+  const { user } = useAuth();
   const { recipes, loading, createRecipe, updateRecipe } = useRecipes();
   const existing = id ? recipes.find((r) => r.id === id) : undefined;
 
   const [draft, setDraft] = useState<Draft>(BLANK);
   const [loaded, setLoaded] = useState(!id);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fill the form once the recipe being edited has arrived.
@@ -75,7 +79,11 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     setDraft((current) => ({ ...current, ...changes }));
   }
 
-  function applyParsed(parsed: ParsedRecipe, source: { kind: SourceKind; ref: string | null }) {
+  function applyParsed(
+    parsed: ParsedRecipe,
+    source: { kind: SourceKind; ref: string | null },
+    image: File | null,
+  ) {
     patch({
       title: parsed.title,
       ingredients_html: parsed.ingredients_html,
@@ -86,6 +94,24 @@ export function RecipeEditScreen({ id }: { id?: string }) {
       source_ref: source.ref,
     });
     setError(null);
+
+    // A picture that travelled with the source — the photo inside a Word
+    // document, or the photograph itself — becomes the recipe's photo. It
+    // uploads in the background: the form is usable meanwhile, and a failure
+    // here costs a photo, not the recipe.
+    if (image && user) void adoptImage(image);
+  }
+
+  async function adoptImage(image: File) {
+    if (!user) return;
+    setUploadingImage(true);
+    try {
+      patch({ image_url: await uploadRecipeImage(user.id, image) });
+    } catch {
+      setError("התמונה מהמסמך לא הועלתה. אפשר לבחור תמונה ידנית.");
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   async function save() {
@@ -206,7 +232,14 @@ export function RecipeEditScreen({ id }: { id?: string }) {
 
         <div className="space-y-1.5">
           <Label className="text-base font-bold">תמונה של המתכון</Label>
-          <ImageField value={draft.image_url} onChange={(url) => patch({ image_url: url })} />
+          {uploadingImage ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              מעלה את התמונה מהמקור…
+            </p>
+          ) : (
+            <ImageField value={draft.image_url} onChange={(url) => patch({ image_url: url })} />
+          )}
         </div>
 
         <div className="space-y-1.5">

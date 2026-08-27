@@ -9,6 +9,7 @@ import {
   parseFromImage,
   parseFromText,
   parseFromUrl,
+  type Imported,
   type ParsedRecipe,
   type SourceKind,
 } from "@/lib/parse-recipe";
@@ -36,7 +37,11 @@ const SOURCES: Source[] = [
 export function RecipeImporter({
   onParsed,
 }: {
-  onParsed: (recipe: ParsedRecipe, source: { kind: SourceKind; ref: string | null }) => void;
+  onParsed: (
+    recipe: ParsedRecipe,
+    source: { kind: SourceKind; ref: string | null },
+    image: File | null,
+  ) => void;
 }) {
   const [kind, setKind] = useState<SourceKind>("text");
   const [pasted, setPasted] = useState("");
@@ -49,11 +54,12 @@ export function RecipeImporter({
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
 
-  async function run(work: () => Promise<ParsedRecipe>, ref: string | null) {
+  async function run(work: () => Promise<Imported>, ref: string | null) {
     setBusy(true);
     setError(null);
     try {
-      onParsed(await work(), { kind, ref });
+      const { recipe, image } = await work();
+      onParsed(recipe, { kind, ref }, image);
     } catch (e) {
       setError(e instanceof Error ? e.message : "פירוק המתכון נכשל");
     } finally {

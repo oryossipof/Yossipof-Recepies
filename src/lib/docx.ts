@@ -78,12 +78,55 @@ function runToHtml(run: Element): string {
   return html;
 }
 
+const IMAGE_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+};
+
 /**
- * Turns the bytes of a .docx into HTML: one paragraph per `<p>`, blank
- * paragraphs dropped. Table cells become paragraphs too, which is enough for
- * the ingredient tables people like to build.
+ * Word keeps every picture in `word/media/`. A recipe document that has a
+ * photo has one big one, next to whatever small decorations the template came
+ * with, so the largest file wins and anything under 10KB is taken for an icon
+ * or a logo and ignored.
  */
-export function docxToHtml(buffer: ArrayBuffer): string {
+function largestImage(entries: Record<string, Uint8Array>): File | null {
+  let best: { name: string; bytes: Uint8Array; type: string } | null = null;
+
+  for (const [path, bytes] of Object.entries(entries)) {
+    if (!path.startsWith("word/media/")) continue;
+
+    const type = IMAGE_TYPES[path.split(".").pop()?.toLowerCase() ?? ""];
+    if (!type || bytes.length < 10_000) continue;
+    if (!best || bytes.length > best.bytes.length) {
+      best = { name: path.split("/").pop() ?? "image", bytes, type };
+    }
+  }
+
+  // A fresh copy: the slice keeps the File independent of the zip buffer.
+  return best
+    ? new File([new Uint8Array(best.bytes).slice().buffer as ArrayBuffer], best.name, {
+        type: best.type,
+      })
+    : null;
+}
+
+export type DocxContent = {
+  /** The document's text, as the app's simple HTML. */
+  html: string;
+  /** The photo the document carried, if it carried one. */
+  image: File | null;
+};
+
+/**
+ * Turns the bytes of a .docx into HTML — one paragraph per `<p>`, blank
+ * paragraphs dropped — and hands back the picture inside it, so a recipe that
+ * came with a photo of the dish arrives with the photo already attached.
+ */
+export function readDocx(buffer: ArrayBuffer): DocxContent {
   let entries: Record<string, Uint8Array>;
   try {
     entries = unzipSync(new Uint8Array(buffer));
@@ -91,6 +134,10 @@ export function docxToHtml(buffer: ArrayBuffer): string {
     throw new Error("הקובץ אינו קובץ Word תקין");
   }
 
+  return { html: documentHtml(entries), image: largestImage(entries) };
+}
+
+function documentHtml(entries: Record<string, Uint8Array>): string {
   const document = entries["word/document.xml"];
   if (!document) throw new Error("לא נמצא טקסט בקובץ ה-Word");
 

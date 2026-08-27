@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
-import { docxToHtml, isDocx, isLegacyDoc } from "./docx";
+import { isDocx, isLegacyDoc, readDocx } from "./docx";
 import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64 } from "./images";
 import { normalizeNutrition } from "./nutrition";
@@ -19,6 +19,17 @@ export type ParsedRecipe = {
 };
 
 export type SourceKind = "text" | "file" | "url" | "drive" | "image";
+
+/**
+ * What one import produced: the fields for the form, plus the picture that
+ * came with the source — the photo inside a Word document, or the photograph
+ * itself when that is what was uploaded. The editor uploads it and fills in
+ * the recipe's photo, and the user can always remove it before saving.
+ */
+export type Imported = {
+  recipe: ParsedRecipe;
+  image: File | null;
+};
 
 type Payload =
   | { kind: "text" | "file"; text: string }
@@ -49,14 +60,18 @@ async function invoke(payload: Payload): Promise<ParsedRecipe> {
   return { ...recipe, nutrition: normalizeNutrition(recipe.nutrition) };
 }
 
+async function withoutImage(recipe: Promise<ParsedRecipe>): Promise<Imported> {
+  return { recipe: await recipe, image: null };
+}
+
 /** Pasted text, formatting and all. */
-export function parseFromText(html: string): Promise<ParsedRecipe> {
-  return invoke({ kind: "text", text: html });
+export function parseFromText(html: string): Promise<Imported> {
+  return withoutImage(invoke({ kind: "text", text: html }));
 }
 
 /** A link to a recipe page. */
-export function parseFromUrl(url: string): Promise<ParsedRecipe> {
-  return invoke({ kind: "url", url });
+export function parseFromUrl(url: string): Promise<Imported> {
+  return withoutImage(invoke({ kind: "url", url }));
 }
 
 /**
@@ -64,26 +79,31 @@ export function parseFromUrl(url: string): Promise<ParsedRecipe> {
  * browser with the picker's own access token, so the file does not have to be
  * shared publicly and the token never reaches the server.
  */
-export async function parseFromDrivePick(pick: DrivePick): Promise<ParsedRecipe> {
+export async function parseFromDrivePick(pick: DrivePick): Promise<Imported> {
   const content = await readDriveFile(pick);
 
-  return content.kind === "text"
+  const recipe = await (content.text !== undefined
     ? invoke({ kind: "file", text: content.text })
-    : invoke({ kind: "image", data: content.data, mimeType: content.mimeType });
+    : invoke({ kind: "image", data: content.media.data, mimeType: content.media.mimeType }));
+
+  return { recipe, image: content.image };
 }
 
 /**
  * A Google Drive / Google Docs share link. Only used as a fallback, when the
  * picker has no credentials configured; it needs a publicly shared link.
  */
-export function parseFromDrive(url: string): Promise<ParsedRecipe> {
-  return invoke({ kind: "drive", url });
+export function parseFromDrive(url: string): Promise<Imported> {
+  return withoutImage(invoke({ kind: "drive", url }));
 }
 
-/** A photo of a recipe, straight from the gallery or the camera. */
-export async function parseFromImage(file: File): Promise<ParsedRecipe> {
+/**
+ * A photo of a recipe, straight from the gallery or the camera. The photo is
+ * both what the model reads and what the recipe ends up showing.
+ */
+export async function parseFromImage(file: File): Promise<Imported> {
   const { data, mimeType } = await fileToBase64(file);
-  return invoke({ kind: "image", data, mimeType });
+  return { recipe: await invoke({ kind: "image", data, mimeType }), image: file };
 }
 
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|json|html?|rtf)$/i;
@@ -92,14 +112,17 @@ const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|json|html?|rtf)$/i;
  * An uploaded file. Word documents and text files are read here; images and
  * PDFs are handed to the model as-is.
  */
-export async function parseFromFile(file: File): Promise<ParsedRecipe> {
+export async function parseFromFile(file: File): Promise<Imported> {
   if (file.type.startsWith("image/") || file.type === "application/pdf") {
     const { data, mimeType } = await fileToBase64(file);
-    return invoke({ kind: "image", data, mimeType });
+    const recipe = await invoke({ kind: "image", data, mimeType });
+    // A PDF has no picture to lift out without a PDF parser; a photo is one.
+    return { recipe, image: file.type.startsWith("image/") ? file : null };
   }
 
   if (isDocx(file.name, file.type)) {
-    return invoke({ kind: "file", text: docxToHtml(await file.arrayBuffer()) });
+    const { html, image } = readDocx(await file.arrayBuffer());
+    return { recipe: await invoke({ kind: "file", text: html }), image };
   }
 
   if (isLegacyDoc(file.name, file.type)) {
@@ -112,7 +135,7 @@ export async function parseFromFile(file: File): Promise<ParsedRecipe> {
   if (file.type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name)) {
     const text = await file.text();
     if (!text.trim()) throw new Error("הקובץ ריק");
-    return invoke({ kind: "file", text });
+    return withoutImage(invoke({ kind: "file", text }));
   }
 
   throw new Error(
