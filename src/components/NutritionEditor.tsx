@@ -1,13 +1,27 @@
-import { Plus, X } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Plus, RefreshCw, X } from "lucide-react";
 
 import type { Nutrition } from "@/integrations/supabase/types";
-import { emptyNutrition } from "@/lib/nutrition";
+import { emptyNutrition, isEmptyNutrition, isNutritionStale, nutritionBasis } from "@/lib/nutrition";
+import { estimateNutrition } from "@/lib/nutrition-estimate";
+import { isBlankHtml } from "@/lib/sanitize-html";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Notice } from "@/components/Notice";
 
 // The AI fills this in, but its figures are an estimate, so every number stays
 // editable — including the suggested ways to divide the dish.
+//
+// The figures are also only ever true of one particular ingredient list, and
+// that list goes on being edited after the AI has had its say. So the editor
+// keeps the list the numbers were worked out from, says plainly when the two
+// have parted company, and can ask again.
+//
+// Asking again is a request against a small free daily allowance, so it happens
+// only when the button is pressed, and the button goes quiet when the numbers
+// already match the ingredients — there is nothing to be learned by asking the
+// same question twice.
 
 function numberOrZero(value: string): number {
   const n = Number(value);
@@ -17,18 +31,39 @@ function numberOrZero(value: string): number {
 export function NutritionEditor({
   value,
   onChange,
+  title,
+  ingredientsHtml,
 }: {
   value: Nutrition | null;
   onChange: (next: Nutrition | null) => void;
+  title: string;
+  ingredientsHtml: string;
 }) {
   const nutrition = value ?? emptyNutrition();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const stale = isNutritionStale(value, ingredientsHtml);
+  const noIngredients = isBlankHtml(ingredientsHtml);
+  const upToDate =
+    !isEmptyNutrition(value) &&
+    !!nutrition.basis &&
+    nutrition.basis === nutritionBasis(ingredientsHtml);
 
   function patch(changes: Partial<Nutrition>) {
     onChange({ ...nutrition, ...changes });
   }
 
+  /**
+   * A number typed by hand is a statement about the ingredients as they stand
+   * now, so it settles the question the warning was asking — no reason to go on
+   * nagging about a list the user has just accounted for themselves.
+   */
   function patchTotal(changes: Partial<Nutrition["total"]>) {
-    patch({ total: { ...nutrition.total, ...changes } });
+    patch({
+      total: { ...nutrition.total, ...changes },
+      basis: nutritionBasis(ingredientsHtml),
+    });
   }
 
   function setDivision(index: number, changes: Partial<{ label: string; count: number }>) {
@@ -37,8 +72,52 @@ export function NutritionEditor({
     });
   }
 
+  async function recalculate() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { nutrition: estimate } = await estimateNutrition({ title, ingredientsHtml });
+      onChange({ ...estimate, basis: nutritionBasis(ingredientsHtml) });
+    } catch (e) {
+      // Whatever is on screen stays on screen: a failed estimate must never
+      // cost the user numbers they already had.
+      setError(e instanceof Error ? e.message : "חישוב הערכים התזונתיים נכשל");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-3">
+      {stale && (
+        <Notice kind="error">
+          הרכיבים השתנו מאז שהערכים חושבו, והמספרים למטה עדיין מתארים את הרשימה הקודמת.
+        </Notice>
+      )}
+
+      <div className="space-y-1.5">
+        <Button
+          type="button"
+          variant={stale ? "default" : "outline"}
+          size="sm"
+          onClick={() => void recalculate()}
+          disabled={busy || noIngredients || upToDate}
+        >
+          {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {busy ? "מחשב…" : "חישוב מחדש לפי הרכיבים"}
+        </Button>
+
+        <p className="text-xs text-muted-foreground">
+          {noIngredients
+            ? "אפשר לחשב אחרי שתמלאו את רשימת הרכיבים."
+            : upToDate
+              ? "הערכים כבר מחושבים לפי הרכיבים שכתובים עכשיו."
+              : "הערכה של ה-AI לכל הכמות. אפשר גם לתקן כל מספר ידנית."}
+        </p>
+      </div>
+
+      {error && <Notice kind="error">{error}</Notice>}
+
       <div className="space-y-2">
         <Label htmlFor="total-label">הכמות הכוללת</Label>
         <Input

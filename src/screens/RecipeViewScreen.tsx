@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Pencil, Star, Trash2 } from "lucide-react";
+import { ChefHat, Pencil, Star, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
+import { useCookLog } from "@/hooks/use-cook-log";
 import { useRecipes } from "@/hooks/use-recipes";
 import { isEmptyNutrition } from "@/lib/nutrition";
 import { goHome, navigate } from "@/lib/router";
@@ -10,6 +11,8 @@ import { isBlankHtml } from "@/lib/sanitize-html";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CookedDifferentlyDialog } from "@/components/CookedDifferentlyDialog";
+import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
 import { RichText } from "@/components/RichText";
@@ -46,8 +49,10 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const { user } = useAuth();
   const { categories } = useCategories();
   const { recipes, loading, deleteRecipe, toggleFavorite } = useRecipes();
+  const cookLog = useCookLog(id);
 
   const [confirming, setConfirming] = useState(false);
+  const [cooking, setCooking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -191,9 +196,45 @@ export function RecipeViewScreen({ id }: { id: string }) {
             <p className="text-xs text-muted-foreground">
               הערכה בלבד, מחושבת על ידי ה-AI לפי הרכיבים והכמויות.
             </p>
+
+            {/*
+              The table above describes the recipe. This asks the other
+              question — what was actually eaten, when the cheese that went in
+              was the low-fat one.
+            */}
+            <Button variant="outline" size="sm" onClick={() => setCooking(true)}>
+              <ChefHat />
+              בישלתי עם שינויים
+            </Button>
+          </Section>
+        )}
+
+        {/*
+          Only once there is something to show: an empty log on every recipe
+          would be a heading that never says anything.
+        */}
+        {cookLog.entries.length > 0 && (
+          <Section emoji="📖" title="יומן הבישולים שלי">
+            <CookLogSection
+              entries={cookLog.entries}
+              recipeNutrition={recipe.nutrition}
+              error={cookLog.error}
+              onDelete={cookLog.removeEntry}
+            />
           </Section>
         )}
       </main>
+
+      {recipe.nutrition && (
+        <CookedDifferentlyDialog
+          open={cooking}
+          onClose={() => setCooking(false)}
+          title={recipe.title}
+          ingredientsHtml={recipe.ingredients_html}
+          saved={recipe.nutrition}
+          onSave={cookLog.addEntry}
+        />
+      )}
 
       <ConfirmDialog
         open={confirming}

@@ -1,5 +1,7 @@
 import type { Nutrition } from "@/integrations/supabase/types";
 
+import { htmlToText } from "./sanitize-html";
+
 export type { Nutrition };
 
 export type NutritionValues = { calories: number; protein: number; fat: number };
@@ -62,10 +64,29 @@ export function normalizeNutrition(value: unknown): Nutrition | null {
     total_label: typeof raw.total_label === "string" && raw.total_label ? raw.total_label : "כל הכמות",
     total: { calories: total.calories, protein: total.protein, fat: total.fat },
     divisions,
+    basis: typeof raw.basis === "string" && raw.basis ? raw.basis : null,
   };
 }
 
 /** True when there is nothing worth showing in the nutrition panel. */
 export function isEmptyNutrition(n: Nutrition | null): boolean {
   return !n || (n.total.calories === 0 && n.total.protein === 0 && n.total.fat === 0);
+}
+
+/**
+ * The ingredient list as the numbers remember it: plain text, so that bolding
+ * an ingredient or re-wrapping a line does not count as changing the food.
+ */
+export function nutritionBasis(ingredientsHtml: string): string {
+  return htmlToText(ingredientsHtml);
+}
+
+/**
+ * True when the numbers describe an ingredient list that is no longer the one
+ * on screen. A recipe with no basis recorded — anything saved before the app
+ * started keeping one — is unknown rather than stale, and says nothing.
+ */
+export function isNutritionStale(n: Nutrition | null, ingredientsHtml: string): boolean {
+  if (!n || isEmptyNutrition(n) || !n.basis) return false;
+  return n.basis !== nutritionBasis(ingredientsHtml);
 }

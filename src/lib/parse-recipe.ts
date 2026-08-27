@@ -1,11 +1,11 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
+import { invokeFunction } from "./edge-function";
 import { isDocument, readDocument } from "./word";
 import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64, keepPhotos } from "./images";
 import { extractPdfImages } from "./embedded-images";
-import { normalizeNutrition } from "./nutrition";
+import { normalizeNutrition, nutritionBasis } from "./nutrition";
 
 // Client side of the parse-recipe Edge Function: turns whatever the user threw
 // at the app into a request the function understands, and normalises what comes
@@ -39,27 +39,24 @@ type Payload =
   | { kind: "image"; data: string; mimeType: string };
 
 async function invoke(payload: Payload): Promise<ParsedRecipe> {
-  const { data, error } = await supabase.functions.invoke("parse-recipe", { body: payload });
+  const data = await invokeFunction<{ recipe?: ParsedRecipe }>(
+    "parse-recipe",
+    payload,
+    "פירוק המתכון נכשל. נסו שוב.",
+  );
 
-  if (error) {
-    // The function reports its own failures as JSON with a Hebrew message;
-    // surface that rather than the generic "non-2xx status code".
-    let detail = "";
-    const context = (error as { context?: Response }).context;
-    if (context && typeof context.json === "function") {
-      try {
-        detail = (await context.json())?.error ?? "";
-      } catch {
-        // Body was not JSON — fall back to the generic message.
-      }
-    }
-    throw new Error(detail || "פירוק המתכון נכשל. נסו שוב.");
-  }
-
-  const recipe = (data as { recipe?: ParsedRecipe })?.recipe;
+  const recipe = data?.recipe;
   if (!recipe) throw new Error("לא התקבל מתכון מהשרת");
 
-  return { ...recipe, nutrition: normalizeNutrition(recipe.nutrition) };
+  // The estimate was made from the ingredients the model just wrote, so record
+  // that as its basis: from here on, any edit to the list is visibly an edit
+  // the numbers have not caught up with.
+  const nutrition = normalizeNutrition(recipe.nutrition);
+
+  return {
+    ...recipe,
+    nutrition: nutrition && { ...nutrition, basis: nutritionBasis(recipe.ingredients_html) },
+  };
 }
 
 async function withoutImage(recipe: Promise<ParsedRecipe>): Promise<Imported> {

@@ -9,6 +9,14 @@ export type Nutrition = {
   total_label: string;
   total: { calories: number; protein: number; fat: number };
   divisions: { label: string; count: number }[];
+  /**
+   * The plain text of the ingredient list these numbers were worked out from.
+   * Kept so the editor can notice that the list has been changed since — an
+   * estimate of the old ingredients is worse than no estimate, because it looks
+   * exactly as authoritative. Null on recipes saved before this was recorded,
+   * which means "unknown", not "out of date".
+   */
+  basis?: string | null;
 };
 
 type RecipeRow = {
@@ -52,6 +60,26 @@ type FavoriteRow = {
   created_at: string;
 };
 
+/** What was used instead of what the recipe says. */
+export type Swap = { from: string; to: string };
+
+/**
+ * One occasion of cooking a recipe with changes. The recipe itself is never
+ * touched — this is the record of what went in the pot that day, and what it
+ * came to.
+ */
+type CookLogRow = {
+  id: string;
+  recipe_id: string;
+  user_id: string;
+  /** ISO date, no time: what matters is the day it was cooked. */
+  cooked_on: string;
+  swaps: Swap[];
+  note: string | null;
+  nutrition: Nutrition;
+  created_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -90,6 +118,12 @@ export interface Database {
         Row: FavoriteRow;
         Insert: Omit<FavoriteRow, "created_at"> & { created_at?: string };
         Update: Partial<FavoriteRow>;
+        Relationships: [];
+      };
+      recipe_cook_log: {
+        Row: CookLogRow;
+        Insert: Omit<CookLogRow, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<CookLogRow>;
         Relationships: [];
       };
     };

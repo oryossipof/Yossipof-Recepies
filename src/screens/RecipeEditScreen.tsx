@@ -295,6 +295,8 @@ export function RecipeEditScreen({ id }: { id?: string }) {
           <NutritionEditor
             value={draft.nutrition}
             onChange={(nutrition) => patch({ nutrition })}
+            title={draft.title}
+            ingredientsHtml={draft.ingredients_html}
           />
         </div>
 

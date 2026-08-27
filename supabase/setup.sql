@@ -58,7 +58,9 @@ CREATE TABLE IF NOT EXISTS public.recipes (
   instructions_html TEXT        NOT NULL DEFAULT '',
   notes_html        TEXT,
   image_url         TEXT,
-  -- { total_label, total: { calories, protein, fat }, divisions: [{ label, count }] }
+  -- { total_label, total: { calories, protein, fat }, divisions: [{ label, count }], basis }
+  -- basis הוא טקסט הרכיבים שממנו חושבו המספרים, כדי שאפשר יהיה לומר שהערכים
+  -- כבר אינם תואמים לרשימה שעל המסך. NULL במתכונים שנשמרו לפני שהשדה נוסף.
   nutrition         JSONB,
   source_kind       TEXT,
   source_ref        TEXT,
@@ -96,6 +98,31 @@ CREATE TABLE IF NOT EXISTS public.recipe_favorites (
 );
 
 CREATE INDEX IF NOT EXISTS idx_recipe_favorites_recipe ON public.recipe_favorites(recipe_id);
+
+
+-- ------------------------------------------------------------
+-- יומן בישולים
+-- ------------------------------------------------------------
+-- המתכון עצמו לעולם אינו משתנה — הוא מוצג בדיוק כפי שנשמר.
+-- כשמבשלים אותו עם שינויים, השינויים נרשמים כאן: התאריך, מה
+-- הוחלף במה, והערכים התזונתיים שיצאו בפועל. כל שורה שייכת
+-- למשתמש שרשם אותה, בדיוק כמו המועדפים.
+
+CREATE TABLE IF NOT EXISTS public.recipe_cook_log (
+  id         UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  recipe_id  UUID        NOT NULL REFERENCES public.recipes(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  cooked_on  DATE        NOT NULL DEFAULT current_date,
+  -- [{ from, to }] — במקום מה השתמשתי במה
+  swaps      JSONB       NOT NULL DEFAULT '[]'::jsonb,
+  note       TEXT,
+  -- אותה צורה כמו recipes.nutrition, בלי basis
+  nutrition  JSONB       NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipe_cook_log_recipe
+  ON public.recipe_cook_log(recipe_id, cooked_on DESC);
 
 
 -- ------------------------------------------------------------
@@ -165,6 +192,7 @@ ALTER TABLE public.recipe_categories     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recipes               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recipe_category_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recipe_favorites      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recipe_cook_log       ENABLE ROW LEVEL SECURITY;
 
 
 -- ---------- פרופילים ----------
@@ -265,6 +293,24 @@ CREATE POLICY "own favorites insert"
 DROP POLICY IF EXISTS "own favorites delete" ON public.recipe_favorites;
 CREATE POLICY "own favorites delete"
   ON public.recipe_favorites FOR DELETE TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+
+-- ---------- יומן בישולים (פרטי לכל משתמש) ----------
+
+DROP POLICY IF EXISTS "own cook log select" ON public.recipe_cook_log;
+CREATE POLICY "own cook log select"
+  ON public.recipe_cook_log FOR SELECT TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "own cook log insert" ON public.recipe_cook_log;
+CREATE POLICY "own cook log insert"
+  ON public.recipe_cook_log FOR INSERT TO authenticated
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+DROP POLICY IF EXISTS "own cook log delete" ON public.recipe_cook_log;
+CREATE POLICY "own cook log delete"
+  ON public.recipe_cook_log FOR DELETE TO authenticated
   USING ((SELECT auth.uid()) = user_id);
 
 
