@@ -11,7 +11,8 @@
 - **מסך ראשי** עם כל המתכונים בריבועים: תמונה, שם, ומי העלה (שם ותמונה קטנה).
   בכותרת — חיפוש מתכון וכפתור הוספה (+) זה לצד זה.
 - **הוספת מתכון** מתוך אחד מחמישה מקורות: הדבקת טקסט, העלאת קובץ
-  (טקסט / PDF / תמונה), קישור ל-Google Drive, תמונה מהגלריה, או קישור לדף מתכון.
+  (טקסט / PDF / תמונה), בחירת קובץ מ-Google Drive, תמונה מהגלריה, או קישור
+  לדף מתכון.
   ה-AI מפרק את המקור לשדות — **שם המתכון**, **רכיבים**, **אופן ההכנה**,
   **הערות** ו**תמונה** — ומעצב את הרכיבים שורה לשורה.
 - **שמירה על העיצוב**: אם הטקסט שהודבק מכיל הדגשות, הן נשמרות גם אחרי הפירוק
@@ -37,8 +38,34 @@ npm run dev
 | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase Dashboard → Project Settings → Data API |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase Dashboard → Project Settings → API Keys |
+| `VITE_GOOGLE_CLIENT_ID` | Google Cloud Console → Credentials → OAuth client ID (Web) |
+| `VITE_GOOGLE_API_KEY` | Google Cloud Console → Credentials → API key |
+| `VITE_GOOGLE_APP_ID` | Google Cloud Console → מספר הפרויקט (Project number) |
 
-את אותם שני משתנים צריך להגדיר גם אצל ספק האחסון (Netlify / Vercel).
+את אותם משתנים צריך להגדיר גם אצל ספק האחסון (Netlify / Vercel).
+
+## בחירת קובץ מ-Google Drive
+
+כל משתמש מייבא מה-Drive **שלו**: הבחירה נעשית ב-Picker הרשמי של גוגל, שנפתח על
+החשבון שאיתו המשתמש מזדהה, והאפליקציה מקבלת רק את הקובץ שנבחר — לא גישה לשאר
+ה-Drive. זה בדיוק מה שה-scope `drive.file` נותן, והוא גם ה-scope שאינו דורש
+אימות אבטחה של גוגל, ולכן כל בני המשפחה יכולים להשתמש בזה ולא רק חשבונות
+ברשימת Test users.
+
+הקובץ יורד בדפדפן עם ה-token של הבחירה: הוא לא חייב להיות משותף לכל מי שיש לו
+קישור, וה-token לא נשלח לשרת — רק הטקסט (או בייטים של PDF / תמונה) מגיעים
+לפונקציית הפירוק. מסמכי Google מיוצאים לטקסט, גיליונות ל-CSV.
+
+בפרויקט ב-Google Cloud Console צריך:
+
+1. להפעיל את **Google Picker API** ואת **Google Drive API**.
+2. במסך ההסכמה (OAuth consent screen) לבחור **External**, ולפרסם את האפליקציה
+   (Publish app) כדי שכל אחד יוכל להתחבר ולא רק Test users.
+3. ליצור **OAuth client ID** מסוג Web, ולרשום ב-Authorized JavaScript origins
+   את כתובות האפליקציה (`http://localhost:5178` ואת כתובת הפרודקשן).
+4. ליצור **API key** ולהגבילו ל-Google Picker API ולאותם origins.
+
+אם אחד משלושת המשתנים חסר, אפשרות ה-Drive חוזרת לשדה של קישור שיתוף ציבורי.
 
 ## הקמת Supabase
 

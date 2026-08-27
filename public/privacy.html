@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>מדיניות פרטיות — מתכונים</title>
+    <meta name="description" content="מדיניות הפרטיות של אפליקציית המתכונים המשפחתית" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #25324a;
+        --muted: #5a6b85;
+        --accent: #38bdf8;
+        --bg: #f7fbfe;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 2.5rem 1.25rem 4rem;
+        font-family: "Assistant", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.75;
+      }
+      main { max-width: 44rem; margin: 0 auto; }
+      h1 { font-size: 1.65rem; margin: 0 0 0.25rem; }
+      h2 { font-size: 1.1rem; margin: 2rem 0 0.5rem; }
+      p, li { color: var(--muted); margin: 0.5rem 0; }
+      li { margin-inline-start: 1.25rem; }
+      .updated { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+      a { color: #0284c7; }
+      .home {
+        display: inline-block;
+        margin-top: 2.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>מדיניות פרטיות</h1>
+      <p class="updated">אפליקציית «מתכונים» · עודכן באוגוסט 2026</p>
+
+      <p>
+        «מתכונים» היא אפליקציה משפחתית לשמירת מתכונים. המסמך הזה מסביר איזה מידע
+        נשמר, לשם מה, ומה קורה כשמייבאים מתכון מ-Google Drive.
+      </p>
+
+      <h2>המידע שנשמר</h2>
+      <ul>
+        <li>
+          <strong>חשבון:</strong> כתובת דוא״ל וסיסמה מוצפנת, ואם בחרתם — שם תצוגה
+          ותמונת פרופיל.
+        </li>
+        <li>
+          <strong>מתכונים:</strong> הטקסט והתמונות שהעליתם, הקטגוריות והמועדפים
+          שלכם. מתכון שנשמר גלוי לכל המשתמשים המחוברים לאפליקציה; עריכה ומחיקה
+          שמורות למי שהעלה אותו.
+        </li>
+      </ul>
+      <p>
+        המידע נשמר אצל ספק התשתית Supabase. אנחנו לא מוכרים מידע ולא מעבירים
+        אותו למפרסמים.
+      </p>
+
+      <h2>ייבוא מ-Google Drive</h2>
+      <p>
+        כשבוחרים לייבא מתכון מ-Google Drive, האפליקציה מבקשת את ההרשאה
+        <code>drive.file</code> ופותחת את חלון הבחירה הרשמי של גוגל. משמעות
+        ההרשאה: לאפליקציה יש גישה <strong>אך ורק לקובץ שבחרתם באותו חלון</strong>
+        — לא לשאר הקבצים ב-Drive שלכם.
+      </p>
+      <ul>
+        <li>הקובץ נקרא בדפדפן שלכם, עם אישור גישה זמני שפג מעצמו.</li>
+        <li>אישור הגישה אינו נשלח לשרתים שלנו ואינו נשמר.</li>
+        <li>הקובץ עצמו אינו נשמר; רק המתכון שחולץ ממנו נשמר, ורק אם לחצתם «שמירה».</li>
+      </ul>
+
+      <h2>עיבוד אוטומטי של מתכונים</h2>
+      <p>
+        כדי לפרק מתכון לשדות (שם, רכיבים, אופן הכנה, הערות וערכים תזונתיים),
+        תוכן המקור נשלח לשירות Gemini של גוגל ומוחזר מפורק. השליחה מתבצעת רק
+        כשאתם מבקשים פירוק אוטומטי.
+      </p>
+
+      <h2>מחיקה ושליטה</h2>
+      <p>
+        אפשר למחוק כל מתכון שהעליתם ישירות מהאפליקציה, ולבטל את הרשאת הגישה
+        ל-Drive בכל רגע בהגדרות חשבון Google שלכם, בעמוד
+        <a href="https://myaccount.google.com/permissions" rel="noopener">הרשאות האפליקציות</a>.
+        למחיקת חשבון ומחיקת כל התוכן שלו — כתבו לנו.
+      </p>
+
+      <h2>יצירת קשר</h2>
+      <p>שאלות בנושא פרטיות: <a href="mailto:yossipof@gmail.com">yossipof@gmail.com</a></p>
+
+      <a class="home" href="/">חזרה לאפליקציה</a>
+    </main>
+  </body>
+</html>

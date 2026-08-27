@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
+import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64 } from "./images";
 import { normalizeNutrition } from "./nutrition";
 
@@ -57,7 +58,23 @@ export function parseFromUrl(url: string): Promise<ParsedRecipe> {
   return invoke({ kind: "url", url });
 }
 
-/** A Google Drive / Google Docs share link. */
+/**
+ * A file chosen in the Google Drive picker. The bytes are fetched in the
+ * browser with the picker's own access token, so the file does not have to be
+ * shared publicly and the token never reaches the server.
+ */
+export async function parseFromDrivePick(pick: DrivePick): Promise<ParsedRecipe> {
+  const content = await readDriveFile(pick);
+
+  return content.kind === "text"
+    ? invoke({ kind: "file", text: content.text })
+    : invoke({ kind: "image", data: content.data, mimeType: content.mimeType });
+}
+
+/**
+ * A Google Drive / Google Docs share link. Only used as a fallback, when the
+ * picker has no credentials configured; it needs a publicly shared link.
+ */
 export function parseFromDrive(url: string): Promise<ParsedRecipe> {
   return invoke({ kind: "drive", url });
 }

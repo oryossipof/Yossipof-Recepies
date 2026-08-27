@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Star, Tags, X } from "lucide-react";
+import { Plus, Search, Tags, X } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -7,8 +7,8 @@ import { useProfile } from "@/hooks/use-profile";
 import { useRecipes } from "@/hooks/use-recipes";
 import { navigate } from "@/lib/router";
 import { htmlToText } from "@/lib/sanitize-html";
-import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export function HomeScreen() {
   const { recipes, loading, error, toggleFavorite } = useRecipes();
 
   const [query, setQuery] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   const visible = useMemo(() => {
@@ -30,7 +30,14 @@ export function HomeScreen() {
 
     return recipes.filter((recipe) => {
       if (favoritesOnly && !recipe.isFavorite) return false;
-      if (categoryId && !recipe.categoryIds.includes(categoryId)) return false;
+
+      // Several categories widen the result rather than narrow it: picking
+      // "מאפים" and "בשרי" shows both, which is what a shelf of categories
+      // is for. Requiring all of them at once would mostly show nothing.
+      if (categoryIds.length > 0 && !recipe.categoryIds.some((id) => categoryIds.includes(id))) {
+        return false;
+      }
+
       if (!needle) return true;
 
       // Search the name first, then the text of the recipe itself, so
@@ -46,9 +53,18 @@ export function HomeScreen() {
 
       return haystack.includes(needle);
     });
-  }, [recipes, query, categoryId, favoritesOnly]);
+  }, [recipes, query, categoryIds, favoritesOnly]);
 
-  const filtering = favoritesOnly || categoryId !== null || query.trim().length > 0;
+  /** How many recipes each category holds — the filter row ranks by it. */
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const recipe of recipes) {
+      for (const id of recipe.categoryIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return counts;
+  }, [recipes]);
+
+  const filtering = favoritesOnly || categoryIds.length > 0 || query.trim().length > 0;
 
   return (
     <div className="min-h-dvh pb-16">
@@ -108,14 +124,19 @@ export function HomeScreen() {
               )}
             </div>
 
+            {/*
+              The one action the screen exists for: a bigger circle, a heavier
+              plus and a shadow that lifts it off the header, so it reads as
+              the only loud thing on a deliberately quiet screen.
+            */}
             <button
               type="button"
               aria-label="הוספת מתכון"
               title="הוספת מתכון"
               onClick={() => navigate("/new")}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-[background-color,box-shadow,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Plus className="size-5" />
+              <Plus className="size-7" strokeWidth={2.75} />
             </button>
           </div>
         </div>
@@ -123,33 +144,19 @@ export function HomeScreen() {
 
       <main className="mx-auto w-full max-w-lg px-4 py-4 sm:max-w-2xl sm:px-6 lg:max-w-5xl lg:px-8 xl:max-w-6xl">
         {(categories.length > 0 || favoritesOnly) && (
-          <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
-            <Chip
-              active={favoritesOnly}
-              onClick={() => setFavoritesOnly((v) => !v)}
-              icon={
-                <Star
-                  className={cn("size-3.5", favoritesOnly ? "fill-current" : "text-star")}
-                />
-              }
-            >
-              מועדפים
-            </Chip>
-
-            <Chip active={categoryId === null} onClick={() => setCategoryId(null)}>
-              הכל
-            </Chip>
-
-            {categories.map((category) => (
-              <Chip
-                key={category.id}
-                active={categoryId === category.id}
-                onClick={() => setCategoryId(categoryId === category.id ? null : category.id)}
-              >
-                {category.name}
-              </Chip>
-            ))}
-          </div>
+          <CategoryFilter
+            categories={categories}
+            counts={categoryCounts}
+            selected={categoryIds}
+            onToggle={(id) =>
+              setCategoryIds((current) =>
+                current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+              )
+            }
+            onClear={() => setCategoryIds([])}
+            favoritesOnly={favoritesOnly}
+            onToggleFavorites={() => setFavoritesOnly((v) => !v)}
+          />
         )}
 
         {error && <Notice kind="error">{error}</Notice>}
@@ -171,35 +178,6 @@ export function HomeScreen() {
         )}
       </main>
     </div>
-  );
-}
-
-function Chip({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
-        active
-          ? "border-primary bg-primary font-medium text-primary-foreground"
-          : "border-border bg-card text-foreground hover:bg-accent/30",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
   );
 }
 

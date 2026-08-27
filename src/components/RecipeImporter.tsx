@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
-import { Camera, FileText, Link2, Loader2, Sparkles, Upload } from "lucide-react";
+import { Camera, FileText, HardDrive, Link2, Loader2, Sparkles, Upload } from "lucide-react";
 
+import { drivePickerConfigured, pickDriveFile } from "@/lib/google-drive";
 import {
   parseFromDrive,
+  parseFromDrivePick,
   parseFromFile,
   parseFromImage,
   parseFromText,
@@ -26,7 +28,7 @@ type Source = { kind: SourceKind; label: string; Icon: typeof FileText };
 const SOURCES: Source[] = [
   { kind: "text", label: "הדבקת טקסט", Icon: FileText },
   { kind: "file", label: "העלאת קובץ", Icon: Upload },
-  { kind: "drive", label: "Google Drive", Icon: Link2 },
+  { kind: "drive", label: "Google Drive", Icon: HardDrive },
   { kind: "image", label: "תמונה מהגלריה", Icon: Camera },
   { kind: "url", label: "קישור למתכון", Icon: Link2 },
 ];
@@ -40,6 +42,8 @@ export function RecipeImporter({
   const [pasted, setPasted] = useState("");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [driveFile, setDriveFile] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -57,6 +61,28 @@ export function RecipeImporter({
     }
   }
 
+  /**
+   * Opens Google's own file picker on the user's Drive and parses whatever
+   * comes back. Closing the picker without choosing is not an error.
+   */
+  async function pickFromDrive() {
+    setError(null);
+    setDriveFile(null);
+    setPicking(true);
+    try {
+      const pick = await pickDriveFile();
+      if (!pick) return;
+
+      setDriveFile(pick.file.name);
+      setPicking(false);
+      await run(() => parseFromDrivePick(pick), pick.file.name);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "בחירת הקובץ מ-Google Drive נכשלה");
+    } finally {
+      setPicking(false);
+    }
+  }
+
   function submit() {
     switch (kind) {
       case "text":
@@ -66,6 +92,7 @@ export function RecipeImporter({
         if (!url.trim()) return setError("הזינו כתובת של דף מתכון");
         return void run(() => parseFromUrl(url.trim()), url.trim());
       case "drive":
+        if (drivePickerConfigured) return void pickFromDrive();
         if (!url.trim()) return setError("הזינו קישור ל-Google Drive");
         return void run(() => parseFromDrive(url.trim()), url.trim());
       case "file":
@@ -78,6 +105,7 @@ export function RecipeImporter({
   function chooseSource(next: SourceKind) {
     setKind(next);
     setError(null);
+    setDriveFile(null);
   }
 
   return (
@@ -118,23 +146,41 @@ export function RecipeImporter({
         />
       )}
 
-      {(kind === "url" || kind === "drive") && (
+      {kind === "url" && (
         <Input
           type="url"
           dir="ltr"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder={
-            kind === "drive" ? "https://drive.google.com/…" : "https://example.com/recipe"
-          }
+          placeholder="https://example.com/recipe"
         />
       )}
 
-      {kind === "drive" && (
-        <p className="text-xs text-muted-foreground">
-          הקישור צריך להיות משותף להצגה לכל מי שיש לו את הקישור.
-        </p>
-      )}
+      {kind === "drive" &&
+        (drivePickerConfigured ? (
+          <p className="text-sm text-muted-foreground">
+            {driveFile ? (
+              <>
+                נבחר הקובץ <span className="font-medium text-foreground">{driveFile}</span>
+              </>
+            ) : (
+              "ייפתח חלון בחירה של Google Drive. אפשר לבחור מסמך Google, קובץ טקסט, PDF או תמונה."
+            )}
+          </p>
+        ) : (
+          <>
+            <Input
+              type="url"
+              dir="ltr"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://drive.google.com/…"
+            />
+            <p className="text-xs text-muted-foreground">
+              הקישור צריך להיות משותף להצגה לכל מי שיש לו את הקישור.
+            </p>
+          </>
+        ))}
 
       {kind === "file" && (
         <p className="text-sm text-muted-foreground">
@@ -171,9 +217,15 @@ export function RecipeImporter({
         }}
       />
 
-      <Button type="button" onClick={submit} disabled={busy} className="w-full">
-        {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-        {busy ? "מפרק את המתכון…" : "פירוק אוטומטי"}
+      <Button type="button" onClick={submit} disabled={busy || picking} className="w-full">
+        {busy || picking ? <Loader2 className="animate-spin" /> : <Sparkles />}
+        {picking
+          ? "ממתין לבחירת קובץ…"
+          : busy
+            ? "מפרק את המתכון…"
+            : kind === "drive" && drivePickerConfigured
+              ? "בחירת קובץ מ-Google Drive"
+              : "פירוק אוטומטי"}
       </Button>
 
       {error && <Notice kind="error">{error}</Notice>}
