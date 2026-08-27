@@ -203,7 +203,7 @@ export function RecipeImporter({
       <input
         ref={fileRef}
         type="file"
-        accept=".txt,.md,.csv,.json,.html,.htm,.rtf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*"
+        accept=".txt,.md,.csv,.json,.html,.htm,.rtf,.doc,.docx,application/msword,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

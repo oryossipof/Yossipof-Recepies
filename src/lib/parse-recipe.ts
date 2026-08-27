@@ -1,8 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
-import { isLegacyDoc, readDoc } from "./doc";
-import { isDocx, readDocx } from "./docx";
+import { isDocument, readDocument } from "./word";
 import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64, keepPhotos } from "./images";
 import { extractPdfImages } from "./embedded-images";
@@ -129,13 +128,8 @@ export async function parseFromFile(file: File): Promise<Imported> {
     return { recipe, images: await keepPhotos(extractPdfImages(buffer)) };
   }
 
-  if (isDocx(file.name, file.type)) {
-    const { html, images } = readDocx(await file.arrayBuffer());
-    return { recipe: await invoke({ kind: "file", text: html }), images: await keepPhotos(images) };
-  }
-
-  if (isLegacyDoc(file.name, file.type)) {
-    const { html, images } = readDoc(await file.arrayBuffer());
+  if (isDocument(file.name, file.type)) {
+    const { html, images } = readDocument(await file.arrayBuffer());
     return { recipe: await invoke({ kind: "file", text: html }), images: await keepPhotos(images) };
   }
 

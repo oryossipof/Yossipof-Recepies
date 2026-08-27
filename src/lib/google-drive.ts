@@ -17,8 +17,7 @@
  * old share-link field.
  */
 
-import { isLegacyDoc, readDoc } from "./doc";
-import { isDocx, readDocx } from "./docx";
+import { isDocument, readDocument } from "./word";
 import { extractPdfImages } from "./embedded-images";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
@@ -144,6 +143,11 @@ async function accessToken(): Promise<string> {
   if (!google) throw new Error("טעינת Google Drive נכשלה");
 
   return new Promise<string>((resolve, reject) => {
+    // Once permission has been given, ask for the token silently. Without
+    // this Google shows its account chooser on every single import, which for
+    // a household of two or three accounts is pure friction.
+    let silent = true;
+
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID as string,
       scope: SCOPE,
@@ -158,6 +162,14 @@ async function accessToken(): Promise<string> {
         resolve(response.access_token);
       },
       error_callback: (error) => {
+        // The silent attempt fails the first time, or after permission is
+        // withdrawn. That is not an error — it means asking properly.
+        if (silent && error.type !== "popup_closed") {
+          silent = false;
+          client.requestAccessToken({ prompt: "consent" });
+          return;
+        }
+
         reject(
           new Error(
             error.type === "popup_closed"
@@ -168,7 +180,7 @@ async function accessToken(): Promise<string> {
       },
     });
 
-    client.requestAccessToken();
+    client.requestAccessToken({ prompt: "" });
   });
 }
 
@@ -276,16 +288,11 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
     token,
   );
 
-  // A Word file uploaded to Drive is still a Word file: Drive will not export
-  // it, so it is unzipped here exactly like one picked off the disk.
-  if (isDocx(file.name, file.mimeType)) {
-    const { html, images } = readDocx(await res.arrayBuffer());
-    return { text: html, images };
-  }
-
-  // The same legacy Word reader serves a .doc kept in Drive.
-  if (isLegacyDoc(file.name, file.mimeType)) {
-    const { html, images } = readDoc(await res.arrayBuffer());
+  // A Word file kept in Drive is still a Word file — Drive will not export
+  // it — so it is read here exactly like one picked off the disk, by whatever
+  // format its bytes turn out to be.
+  if (isDocument(file.name, file.mimeType)) {
+    const { html, images } = readDocument(await res.arrayBuffer());
     return { text: html, images };
   }
 
