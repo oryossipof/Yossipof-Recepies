@@ -32,6 +32,11 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico,webmanifest}"],
         navigateFallback: "/index.html",
+        // The legal pages are plain static HTML, not app routes. Without this
+        // the navigation fallback answers them with the app shell, and anyone
+        // with the PWA installed sees the recipe list where the privacy policy
+        // should be — including Google, which checks those two links.
+        navigateFallbackDenylist: [/^\/privacy\.html$/, /^\/terms\.html$/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
