@@ -1,10 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Nutrition } from "@/integrations/supabase/types";
 
-import { isDocx, isLegacyDoc, readDocx } from "./docx";
+import { isLegacyDoc, readDoc } from "./doc";
+import { isDocx, readDocx } from "./docx";
 import { readDriveFile, type DrivePick } from "./google-drive";
 import { fileToBase64, keepPhotos } from "./images";
-import { extractPdfImages } from "./pdf-images";
+import { extractPdfImages } from "./embedded-images";
 import { normalizeNutrition } from "./nutrition";
 
 // Client side of the parse-recipe Edge Function: turns whatever the user threw
@@ -134,10 +135,8 @@ export async function parseFromFile(file: File): Promise<Imported> {
   }
 
   if (isLegacyDoc(file.name, file.type)) {
-    throw new Error(
-      "הקובץ שמור בפורמט Word הישן (doc.). שמרו אותו מחדש כ-docx. " +
-        "או העתיקו והדביקו את המתכון כטקסט.",
-    );
+    const { html, images } = readDoc(await file.arrayBuffer());
+    return { recipe: await invoke({ kind: "file", text: html }), images: await keepPhotos(images) };
   }
 
   if (file.type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name)) {

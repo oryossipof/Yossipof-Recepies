@@ -23,9 +23,6 @@ export function isDocx(name: string, mimeType: string): boolean {
   return mimeType === DOCX_MIME || /\.docx$/i.test(name);
 }
 
-export function isLegacyDoc(name: string, mimeType: string): boolean {
-  return mimeType === "application/msword" || /\.doc$/i.test(name);
-}
 
 function escapeHtml(text: string): string {
   return text

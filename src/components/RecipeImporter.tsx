@@ -190,7 +190,7 @@ export function RecipeImporter({
 
       {kind === "file" && (
         <p className="text-sm text-muted-foreground">
-          מסמך Word (docx.), קובץ טקסט, PDF או תמונה.
+          מסמך Word (doc. או docx.), קובץ טקסט, PDF או תמונה.
         </p>
       )}
 
@@ -203,7 +203,7 @@ export function RecipeImporter({
       <input
         ref={fileRef}
         type="file"
-        accept=".txt,.md,.csv,.json,.html,.htm,.rtf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*"
+        accept=".txt,.md,.csv,.json,.html,.htm,.rtf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,image/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

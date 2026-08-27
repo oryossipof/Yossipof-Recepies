@@ -17,8 +17,9 @@
  * old share-link field.
  */
 
-import { isDocx, isLegacyDoc, readDocx } from "./docx";
-import { extractPdfImages } from "./pdf-images";
+import { isLegacyDoc, readDoc } from "./doc";
+import { isDocx, readDocx } from "./docx";
+import { extractPdfImages } from "./embedded-images";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
@@ -282,11 +283,10 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
     return { text: html, images };
   }
 
+  // The same legacy Word reader serves a .doc kept in Drive.
   if (isLegacyDoc(file.name, file.mimeType)) {
-    throw new Error(
-      "הקובץ שמור בפורמט Word הישן (doc.). שמרו אותו מחדש כ-docx, " +
-        "או פתחו אותו ב-Google Docs ובחרו אותו משם.",
-    );
+    const { html, images } = readDoc(await res.arrayBuffer());
+    return { text: html, images };
   }
 
   if (isTextual(file)) {
