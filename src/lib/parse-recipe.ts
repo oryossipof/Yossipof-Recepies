@@ -3,7 +3,8 @@ import type { Nutrition } from "@/integrations/supabase/types";
 
 import { isDocx, isLegacyDoc, readDocx } from "./docx";
 import { readDriveFile, type DrivePick } from "./google-drive";
-import { fileToBase64 } from "./images";
+import { fileToBase64, keepPhotos } from "./images";
+import { extractPdfImages } from "./pdf-images";
 import { normalizeNutrition } from "./nutrition";
 
 // Client side of the parse-recipe Edge Function: turns whatever the user threw
@@ -21,14 +22,15 @@ export type ParsedRecipe = {
 export type SourceKind = "text" | "file" | "url" | "drive" | "image";
 
 /**
- * What one import produced: the fields for the form, plus the picture that
- * came with the source — the photo inside a Word document, or the photograph
- * itself when that is what was uploaded. The editor uploads it and fills in
- * the recipe's photo, and the user can always remove it before saving.
+ * What one import produced: the fields for the form, plus every picture that
+ * came with the source — the photos inside a Word document or a PDF, or the
+ * photograph itself when that is what was uploaded. They arrive biggest
+ * first; the editor takes the first as the recipe's photo and offers the rest
+ * to choose from, and the user can always remove or replace it before saving.
  */
 export type Imported = {
   recipe: ParsedRecipe;
-  image: File | null;
+  images: File[];
 };
 
 type Payload =
@@ -61,7 +63,7 @@ async function invoke(payload: Payload): Promise<ParsedRecipe> {
 }
 
 async function withoutImage(recipe: Promise<ParsedRecipe>): Promise<Imported> {
-  return { recipe: await recipe, image: null };
+  return { recipe: await recipe, images: [] };
 }
 
 /** Pasted text, formatting and all. */
@@ -86,7 +88,7 @@ export async function parseFromDrivePick(pick: DrivePick): Promise<Imported> {
     ? invoke({ kind: "file", text: content.text })
     : invoke({ kind: "image", data: content.media.data, mimeType: content.media.mimeType }));
 
-  return { recipe, image: content.image };
+  return { recipe, images: await keepPhotos(content.images) };
 }
 
 /**
@@ -103,7 +105,7 @@ export function parseFromDrive(url: string): Promise<Imported> {
  */
 export async function parseFromImage(file: File): Promise<Imported> {
   const { data, mimeType } = await fileToBase64(file);
-  return { recipe: await invoke({ kind: "image", data, mimeType }), image: file };
+  return { recipe: await invoke({ kind: "image", data, mimeType }), images: [file] };
 }
 
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|json|html?|rtf)$/i;
@@ -113,16 +115,22 @@ const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|json|html?|rtf)$/i;
  * PDFs are handed to the model as-is.
  */
 export async function parseFromFile(file: File): Promise<Imported> {
-  if (file.type.startsWith("image/") || file.type === "application/pdf") {
+  if (file.type.startsWith("image/")) {
+    const { data, mimeType } = await fileToBase64(file);
+    // The photograph is both what the model reads and what the recipe shows.
+    return { recipe: await invoke({ kind: "image", data, mimeType }), images: [file] };
+  }
+
+  if (file.type === "application/pdf") {
+    const buffer = await file.arrayBuffer();
     const { data, mimeType } = await fileToBase64(file);
     const recipe = await invoke({ kind: "image", data, mimeType });
-    // A PDF has no picture to lift out without a PDF parser; a photo is one.
-    return { recipe, image: file.type.startsWith("image/") ? file : null };
+    return { recipe, images: await keepPhotos(extractPdfImages(buffer)) };
   }
 
   if (isDocx(file.name, file.type)) {
-    const { html, image } = readDocx(await file.arrayBuffer());
-    return { recipe: await invoke({ kind: "file", text: html }), image };
+    const { html, images } = readDocx(await file.arrayBuffer());
+    return { recipe: await invoke({ kind: "file", text: html }), images: await keepPhotos(images) };
   }
 
   if (isLegacyDoc(file.name, file.type)) {

@@ -40,7 +40,7 @@ export function RecipeImporter({
   onParsed: (
     recipe: ParsedRecipe,
     source: { kind: SourceKind; ref: string | null },
-    image: File | null,
+    images: File[],
   ) => void;
 }) {
   const [kind, setKind] = useState<SourceKind>("text");
@@ -58,8 +58,8 @@ export function RecipeImporter({
     setBusy(true);
     setError(null);
     try {
-      const { recipe, image } = await work();
-      onParsed(recipe, { kind, ref }, image);
+      const { recipe, images } = await work();
+      onParsed(recipe, { kind, ref }, images);
     } catch (e) {
       setError(e instanceof Error ? e.message : "פירוק המתכון נכשל");
     } finally {

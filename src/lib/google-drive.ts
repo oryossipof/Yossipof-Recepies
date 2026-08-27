@@ -18,6 +18,7 @@
  */
 
 import { isDocx, isLegacyDoc, readDocx } from "./docx";
+import { extractPdfImages } from "./pdf-images";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined;
@@ -51,8 +52,8 @@ export type DrivePick = {
  * the recipe's photo when the file carried one.
  */
 export type DriveContent =
-  | { text: string; media?: undefined; image: File | null }
-  | { text?: undefined; media: { data: string; mimeType: string }; image: File | null };
+  | { text: string; media?: undefined; images: File[] }
+  | { text?: undefined; media: { data: string; mimeType: string }; images: File[] };
 
 // ------------------------------------------------------------------
 // Google's scripts, loaded on demand
@@ -262,7 +263,7 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
       `?mimeType=${encodeURIComponent(exportAs)}`;
     const text = (await (await driveFetch(url, token)).text()).trim();
     if (!text) throw new Error("הקובץ ריק");
-    return { text, image: null };
+    return { text, images: [] };
   }
 
   if (file.mimeType.startsWith("application/vnd.google-apps")) {
@@ -277,8 +278,8 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
   // A Word file uploaded to Drive is still a Word file: Drive will not export
   // it, so it is unzipped here exactly like one picked off the disk.
   if (isDocx(file.name, file.mimeType)) {
-    const { html, image } = readDocx(await res.arrayBuffer());
-    return { text: html, image };
+    const { html, images } = readDocx(await res.arrayBuffer());
+    return { text: html, images };
   }
 
   if (isLegacyDoc(file.name, file.mimeType)) {
@@ -291,7 +292,7 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
   if (isTextual(file)) {
     const text = (await res.text()).trim();
     if (!text) throw new Error("הקובץ ריק");
-    return { text, image: null };
+    return { text, images: [] };
   }
 
   if (file.mimeType === "application/pdf" || file.mimeType.startsWith("image/")) {
@@ -300,8 +301,10 @@ export async function readDriveFile({ file, token }: DrivePick): Promise<DriveCo
     return {
       media: { data: base64(bytes), mimeType: file.mimeType },
       // A picture picked from Drive is also the picture of the dish; a PDF
-      // would need a PDF parser to give one up.
-      image: isPhoto ? new File([bytes], file.name, { type: file.mimeType }) : null,
+      // gives up whichever photographs were placed inside it.
+      images: isPhoto
+        ? [new File([bytes], file.name, { type: file.mimeType })]
+        : extractPdfImages(bytes),
     };
   }
 

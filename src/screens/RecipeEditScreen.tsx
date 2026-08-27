@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -6,6 +6,7 @@ import { useRecipes, type RecipeInput } from "@/hooks/use-recipes";
 import type { Nutrition } from "@/integrations/supabase/types";
 import { uploadRecipeImage } from "@/lib/images";
 import { navigate } from "@/lib/router";
+import { cn } from "@/lib/utils";
 import type { ParsedRecipe, SourceKind } from "@/lib/parse-recipe";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import { CategoryPicker } from "@/components/CategoryPicker";
@@ -56,7 +57,14 @@ export function RecipeEditScreen({ id }: { id?: string }) {
   const [loaded, setLoaded] = useState(!id);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [photoOptions, setPhotoOptions] = useState<File[]>([]);
+  const [chosenPhoto, setChosenPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Thumbnails for the pictures found in the source. Object URLs are revoked
+  // when the list changes, otherwise every import leaks the previous set.
+  const photoThumbs = useMemo(() => photoOptions.map((f) => URL.createObjectURL(f)), [photoOptions]);
+  useEffect(() => () => photoThumbs.forEach(URL.revokeObjectURL), [photoThumbs]);
 
   // Fill the form once the recipe being edited has arrived.
   useEffect(() => {
@@ -82,7 +90,7 @@ export function RecipeEditScreen({ id }: { id?: string }) {
   function applyParsed(
     parsed: ParsedRecipe,
     source: { kind: SourceKind; ref: string | null },
-    image: File | null,
+    images: File[],
   ) {
     patch({
       title: parsed.title,
@@ -95,20 +103,22 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     });
     setError(null);
 
-    // A picture that travelled with the source — the photo inside a Word
-    // document, or the photograph itself — becomes the recipe's photo. It
-    // uploads in the background: the form is usable meanwhile, and a failure
-    // here costs a photo, not the recipe.
-    if (image && user) void adoptImage(image);
+    // Pictures that travelled with the source — the photos inside a Word file
+    // or a PDF, or the photograph itself. The biggest is taken as the recipe's
+    // photo and the rest stay on offer. The upload runs in the background: the
+    // form is usable meanwhile, and a failure here costs a photo, not a recipe.
+    setPhotoOptions(images);
+    if (images.length > 0 && user) void adoptImage(images[0]);
   }
 
   async function adoptImage(image: File) {
     if (!user) return;
+    setChosenPhoto(image);
     setUploadingImage(true);
     try {
       patch({ image_url: await uploadRecipeImage(user.id, image) });
     } catch {
-      setError("התמונה מהמסמך לא הועלתה. אפשר לבחור תמונה ידנית.");
+      setError("התמונה מהמקור לא הועלתה. אפשר לבחור תמונה ידנית.");
     } finally {
       setUploadingImage(false);
     }
@@ -239,6 +249,36 @@ export function RecipeEditScreen({ id }: { id?: string }) {
             </p>
           ) : (
             <ImageField value={draft.image_url} onChange={(url) => patch({ image_url: url })} />
+          )}
+
+          {/*
+            More than one picture came out of the document, so the guess — the
+            biggest one — is only a default, and the others are one tap away.
+          */}
+          {photoOptions.length > 1 && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-sm text-muted-foreground">
+                נמצאו {photoOptions.length} תמונות במקור. אפשר לבחור אחרת:
+              </p>
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                {photoOptions.map((file, i) => (
+                  <button
+                    key={photoThumbs[i]}
+                    type="button"
+                    aria-label={`בחירת תמונה ${i + 1}`}
+                    aria-pressed={chosenPhoto === file}
+                    onClick={() => void adoptImage(file)}
+                    disabled={uploadingImage}
+                    className={cn(
+                      "size-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors",
+                      chosenPhoto === file ? "border-primary" : "border-border hover:border-ring",
+                    )}
+                  >
+                    <img src={photoThumbs[i]} alt="" className="size-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

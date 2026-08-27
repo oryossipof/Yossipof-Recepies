@@ -88,37 +88,31 @@ const IMAGE_TYPES: Record<string, string> = {
 };
 
 /**
- * Word keeps every picture in `word/media/`. A recipe document that has a
- * photo has one big one, next to whatever small decorations the template came
- * with, so the largest file wins and anything under 10KB is taken for an icon
- * or a logo and ignored.
+ * Word keeps every picture in `word/media/`. All of them are returned, biggest
+ * first — a recipe document often has the finished dish plus a few steps — and
+ * anything under 10KB is taken for a template icon or a bullet and ignored.
  */
-function largestImage(entries: Record<string, Uint8Array>): File | null {
-  let best: { name: string; bytes: Uint8Array; type: string } | null = null;
+function mediaImages(entries: Record<string, Uint8Array>): File[] {
+  const images: File[] = [];
 
   for (const [path, bytes] of Object.entries(entries)) {
     if (!path.startsWith("word/media/")) continue;
 
     const type = IMAGE_TYPES[path.split(".").pop()?.toLowerCase() ?? ""];
     if (!type || bytes.length < 10_000) continue;
-    if (!best || bytes.length > best.bytes.length) {
-      best = { name: path.split("/").pop() ?? "image", bytes, type };
-    }
+
+    // A copy, so the File does not hold on to the whole unzipped archive.
+    images.push(new File([bytes.slice()], path.split("/").pop() ?? "image", { type }));
   }
 
-  // A fresh copy: the slice keeps the File independent of the zip buffer.
-  return best
-    ? new File([new Uint8Array(best.bytes).slice().buffer as ArrayBuffer], best.name, {
-        type: best.type,
-      })
-    : null;
+  return images.sort((a, b) => b.size - a.size);
 }
 
 export type DocxContent = {
   /** The document's text, as the app's simple HTML. */
   html: string;
-  /** The photo the document carried, if it carried one. */
-  image: File | null;
+  /** Every picture the document carried, biggest first. */
+  images: File[];
 };
 
 /**
@@ -134,7 +128,7 @@ export function readDocx(buffer: ArrayBuffer): DocxContent {
     throw new Error("הקובץ אינו קובץ Word תקין");
   }
 
-  return { html: documentHtml(entries), image: largestImage(entries) };
+  return { html: documentHtml(entries), images: mediaImages(entries) };
 }
 
 function documentHtml(entries: Record<string, Uint8Array>): string {

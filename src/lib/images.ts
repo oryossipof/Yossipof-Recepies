@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 // keeps uploads quick on mobile data and the bucket small.
 
 const RECIPE_MAX_WIDTH = 1200;
+const MIN_PHOTO_EDGE = 200;
 const AVATAR_MAX_WIDTH = 400;
 const QUALITY = 0.82;
 
@@ -75,6 +76,36 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   const blob = await compress(file, AVATAR_MAX_WIDTH);
   const url = await upload("recipe-avatars", `${userId}/avatar.jpg`, blob);
   return `${url}?v=${Date.now()}`;
+}
+
+/**
+ * Sifts candidate pictures pulled out of a document down to the ones that
+ * could plausibly be a photo of the dish: each one has to actually decode —
+ * which throws out a JPEG cut short inside a PDF — and be at least 200px on
+ * both sides, which throws out logos, rules and bullets that slipped past the
+ * size check. The biggest picture ends up first, and that is the one the
+ * editor picks by default.
+ */
+export async function keepPhotos(files: File[]): Promise<File[]> {
+  const measured = await Promise.all(
+    files.map(async (file) => {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const { width, height } = bitmap;
+        bitmap.close();
+        return { file, width, height };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return measured
+    .filter((m): m is { file: File; width: number; height: number } => {
+      return m !== null && m.width >= MIN_PHOTO_EDGE && m.height >= MIN_PHOTO_EDGE;
+    })
+    .sort((a, b) => b.width * b.height - a.width * a.height)
+    .map((m) => m.file);
 }
 
 /** Base64 payload for the AI parser, which reads recipe photos directly. */
