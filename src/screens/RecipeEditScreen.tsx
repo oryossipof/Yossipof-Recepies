@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRecipes, type RecipeInput } from "@/hooks/use-recipes";
 import type { Nutrition } from "@/integrations/supabase/types";
 import { uploadRecipeImage } from "@/lib/images";
+import { isNutritionStale } from "@/lib/nutrition";
 import { navigate } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import type { ParsedRecipe, SourceKind } from "@/lib/parse-recipe";
@@ -15,6 +16,7 @@ import { Notice } from "@/components/Notice";
 import { NutritionEditor } from "@/components/NutritionEditor";
 import { RecipeImporter } from "@/components/RecipeImporter";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { NUTRITION_ANCHOR, StaleNutritionBanner } from "@/components/StaleNutritionBanner";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +84,10 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     });
     setLoaded(true);
   }, [id, existing, loaded]);
+
+  // Shown as a floating banner rather than beside the numbers: whoever edits an
+  // ingredient and heads for save would never scroll far enough to see it.
+  const nutritionStale = isNutritionStale(draft.nutrition, draft.ingredients_html);
 
   function patch(changes: Partial<Draft>) {
     setDraft((current) => ({ ...current, ...changes }));
@@ -188,7 +194,9 @@ export function RecipeEditScreen({ id }: { id?: string }) {
   );
 
   return (
-    <div className="min-h-dvh pb-12">
+    // Extra room at the foot while the banner is up, so it never covers the
+    // save button it is warning about.
+    <div className={cn("min-h-dvh", nutritionStale ? "pb-40" : "pb-12")}>
       <ScreenHeader title={id ? "עריכת מתכון" : "מתכון חדש"} actions={saveButton} />
 
       <main className="mx-auto w-full max-w-2xl space-y-7 px-4 py-8 sm:px-6">
@@ -290,7 +298,7 @@ export function RecipeEditScreen({ id }: { id?: string }) {
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div id={NUTRITION_ANCHOR} className="space-y-1.5 scroll-mt-24">
           <Label className="text-base font-bold">ערכים תזונתיים</Label>
           <NutritionEditor
             value={draft.nutrition}
@@ -304,6 +312,8 @@ export function RecipeEditScreen({ id }: { id?: string }) {
 
         <div className="flex justify-end">{saveButton}</div>
       </main>
+
+      {nutritionStale && <StaleNutritionBanner />}
     </div>
   );
 }

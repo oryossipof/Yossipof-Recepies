@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Loader2, Plus, RefreshCw, X } from "lucide-react";
 
 import type { Nutrition } from "@/integrations/supabase/types";
-import { emptyNutrition, isEmptyNutrition, isNutritionStale, nutritionBasis } from "@/lib/nutrition";
+import {
+  emptyNutrition,
+  formatGrams,
+  isEmptyNutrition,
+  isNutritionStale,
+  nutritionBasis,
+} from "@/lib/nutrition";
 import { estimateNutrition } from "@/lib/nutrition-estimate";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import { Button } from "@/components/ui/button";
@@ -10,18 +16,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/Notice";
 
-// The AI fills this in, but its figures are an estimate, so every number stays
-// editable — including the suggested ways to divide the dish.
+// The AI works the three figures out; they are not fields. Nobody can know by
+// looking that a pot holds 8,700 calories, and a box inviting that number to be
+// typed would produce guesses indistinguishable from calculations. What a cook
+// does decide stays editable: what to call the whole quantity, and the ways of
+// dividing it up.
 //
-// The figures are also only ever true of one particular ingredient list, and
-// that list goes on being edited after the AI has had its say. So the editor
-// keeps the list the numbers were worked out from, says plainly when the two
-// have parted company, and can ask again.
+// The figures are only ever true of one particular ingredient list, and that
+// list goes on being edited after the AI has had its say. So the editor keeps
+// the list the numbers were worked out from, says plainly when the two have
+// parted company, and can ask again.
 //
 // Asking again is a request against a small free daily allowance, so it happens
 // only when the button is pressed, and the button goes quiet when the numbers
 // already match the ingredients — there is nothing to be learned by asking the
 // same question twice.
+
+const FIGURES = [
+  { key: "calories", label: "קלוריות" },
+  { key: "protein", label: "חלבון (ג׳)" },
+  { key: "fat", label: "שומן (ג׳)" },
+] as const;
 
 function numberOrZero(value: string): number {
   const n = Number(value);
@@ -54,18 +69,6 @@ export function NutritionEditor({
     onChange({ ...nutrition, ...changes });
   }
 
-  /**
-   * A number typed by hand is a statement about the ingredients as they stand
-   * now, so it settles the question the warning was asking — no reason to go on
-   * nagging about a list the user has just accounted for themselves.
-   */
-  function patchTotal(changes: Partial<Nutrition["total"]>) {
-    patch({
-      total: { ...nutrition.total, ...changes },
-      basis: nutritionBasis(ingredientsHtml),
-    });
-  }
-
   function setDivision(index: number, changes: Partial<{ label: string; count: number }>) {
     patch({
       divisions: nutrition.divisions.map((d, i) => (i === index ? { ...d, ...changes } : d)),
@@ -89,12 +92,12 @@ export function NutritionEditor({
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-3">
-      {stale && (
-        <Notice kind="error">
-          הרכיבים השתנו מאז שהערכים חושבו, והמספרים למטה עדיין מתארים את הרשימה הקודמת.
-        </Notice>
-      )}
-
+      {/*
+        The warning itself floats above the whole screen rather than sitting
+        here, where it can be scrolled past without ever being seen. What is
+        left at this spot is the button turning solid, which marks *which*
+        numbers the warning is about.
+      */}
       <div className="space-y-1.5">
         <Button
           type="button"
@@ -112,7 +115,7 @@ export function NutritionEditor({
             ? "אפשר לחשב אחרי שתמלאו את רשימת הרכיבים."
             : upToDate
               ? "הערכים כבר מחושבים לפי הרכיבים שכתובים עכשיו."
-              : "הערכה של ה-AI לכל הכמות. אפשר גם לתקן כל מספר ידנית."}
+              : "הערכה של ה-AI לכל הכמות, לפי הרכיבים והכמויות שלהם."}
         </p>
       </div>
 
@@ -128,48 +131,24 @@ export function NutritionEditor({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="calories" className="text-xs">
-            קלוריות
-          </Label>
-          <Input
-            id="calories"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={String(nutrition.total.calories)}
-            onChange={(e) => patchTotal({ calories: numberOrZero(e.target.value) })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="protein" className="text-xs">
-            חלבון (ג׳)
-          </Label>
-          <Input
-            id="protein"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.1"
-            value={String(nutrition.total.protein)}
-            onChange={(e) => patchTotal({ protein: numberOrZero(e.target.value) })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="fat" className="text-xs">
-            שומן (ג׳)
-          </Label>
-          <Input
-            id="fat"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.1"
-            value={String(nutrition.total.fat)}
-            onChange={(e) => patchTotal({ fat: numberOrZero(e.target.value) })}
-          />
-        </div>
+      {/*
+        Shown, not typed. Nobody can look at a pot of food and know it holds
+        8,700 calories, so a box to enter that in would only invite a number
+        that looks every bit as authoritative as a calculated one. These three
+        are the result of the calculation above, and recalculating is the way
+        to change them.
+      */}
+      <div className="grid grid-cols-3 gap-2 rounded-md border border-border bg-muted/40 p-3 text-center">
+        {FIGURES.map(({ key, label }) => (
+          <div key={key} className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="text-lg font-semibold tabular-nums">
+              {key === "calories"
+                ? nutrition.total.calories
+                : formatGrams(nutrition.total[key])}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className="space-y-2">
