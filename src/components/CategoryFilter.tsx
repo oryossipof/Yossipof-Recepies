@@ -88,7 +88,7 @@ export function CategoryFilter({
         </Chip>
 
         <Chip active={mineOnly} onClick={onToggleMine} icon={<ChefHat className="size-3.5" />}>
-          שלי
+          המתכונים שלי
         </Chip>
 
         <Chip
