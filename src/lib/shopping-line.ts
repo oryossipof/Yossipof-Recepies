@@ -10,51 +10,73 @@
 // Nothing here is clever about it. Everything it parses is shown to the cook in
 // editable fields before a single item is sent, so a wrong guess costs a tap.
 
-/** The default unit of the shopping app: every item in it is counted in these. */
-export const DEFAULT_UNIT = "יח׳";
+/**
+ * The units the shopping app offers, in its order and its spelling.
+ *
+ * Copied from that app's own add-item form, which is what every item in the
+ * list was written with. (Its item card lists the same seven with ASCII
+ * apostrophes instead of Hebrew ones — a discrepancy in that app, not a choice
+ * to follow: matching the form is what matches the data.)
+ *
+ * An item sent from here has to carry one of exactly these, or the shopping app
+ * will show a unit its own picker cannot offer.
+ */
+export const SHOPPING_UNITS = ["יח׳", "ק״ג", "גרם", "ליטר", "מ״ל", "חבילה", "קופסה"] as const;
+
+export const DEFAULT_UNIT = SHOPPING_UNITS[0];
 
 /**
- * Cooking measures worth lifting off a line. A word only counts as a unit when
- * a number came before it, so "מלח" stays a product and "2 כפות" does not.
+ * Cooking measures worth lifting off a line, and what each is worth in a shop.
+ *
+ * A weight or a volume translates: a kilo of flour is bought by the kilo. A
+ * spoonful does not — sugar is sold by the bag however much of it the recipe
+ * wants — so those map to nothing, and the line is shopped for as one of the
+ * thing. The measure itself is not lost: it travels to the list as a note.
+ *
+ * A word only counts as a measure when a number came before it, so "מלח" stays
+ * a product and "2 כפות" does not become one.
  */
-const UNITS = [
-  "כוסות",
-  "כוס",
-  "כפות",
-  "כף",
-  "כפיות",
-  "כפית",
-  "גרם",
-  "ג׳",
-  "ג'",
-  'ק"ג',
-  "ק״ג",
-  "קילו",
-  'מ"ל',
-  "מ״ל",
-  "ליטר",
-  "חבילות",
-  "חבילה",
-  "שקיות",
-  "שקית",
-  "קופסאות",
-  "קופסה",
-  "יחידות",
-  "יחידה",
-  "פרוסות",
-  "פרוסה",
-  "שיני",
-  "שן",
-  "צרורות",
-  "צרור",
-  "קורט",
+const MEASURES: { word: string; unit: (typeof SHOPPING_UNITS)[number] | null }[] = [
+  { word: "כוסות", unit: null },
+  { word: "כוס", unit: null },
+  { word: "כפות", unit: null },
+  { word: "כף", unit: null },
+  { word: "כפיות", unit: null },
+  { word: "כפית", unit: null },
+  { word: "קורט", unit: null },
+  { word: "שיני", unit: null },
+  { word: "שן", unit: null },
+  { word: "פרוסות", unit: null },
+  { word: "פרוסה", unit: null },
+  { word: "צרורות", unit: null },
+  { word: "צרור", unit: null },
+  { word: "גרם", unit: "גרם" },
+  { word: "ג׳", unit: "גרם" },
+  { word: "ג'", unit: "גרם" },
+  { word: 'ק"ג', unit: "ק״ג" },
+  { word: "ק״ג", unit: "ק״ג" },
+  { word: "קילוגרם", unit: "ק״ג" },
+  { word: "קילו", unit: "ק״ג" },
+  { word: 'מ"ל', unit: "מ״ל" },
+  { word: "מ״ל", unit: "מ״ל" },
+  { word: "מיליליטר", unit: "מ״ל" },
+  { word: "ליטר", unit: "ליטר" },
+  { word: "חבילות", unit: "חבילה" },
+  { word: "חבילה", unit: "חבילה" },
+  { word: "קופסאות", unit: "קופסה" },
+  { word: "קופסה", unit: "קופסה" },
+  { word: "שקיות", unit: "חבילה" },
+  { word: "שקית", unit: "חבילה" },
+  { word: "יחידות", unit: "יח׳" },
+  { word: "יחידה", unit: "יח׳" },
 ];
 
 export type ShoppingLine = {
   /** The product as it would be written on a shopping list. */
   name: string;
   quantity: number;
-  unit: string;
+  /** Always one of SHOPPING_UNITS, so the other app can show it. */
+  unit: (typeof SHOPPING_UNITS)[number];
 };
 
 /**
@@ -75,14 +97,16 @@ function leadingQuantity(text: string): { quantity: number; rest: string } | nul
   return { quantity, rest };
 }
 
-/** The cooking unit at the front of what is left, if there is one. */
-function leadingUnit(text: string): { unit: string; rest: string } | null {
-  for (const unit of UNITS) {
-    if (!text.startsWith(unit)) continue;
-    const rest = text.slice(unit.length);
-    // "כוסות" opens "כוסות סוכר" but not "כוסברה": a unit has to end the word.
+/** The cooking measure at the front of what is left, if there is one. */
+function leadingMeasure(
+  text: string,
+): { unit: (typeof SHOPPING_UNITS)[number] | null; rest: string } | null {
+  for (const measure of MEASURES) {
+    if (!text.startsWith(measure.word)) continue;
+    const rest = text.slice(measure.word.length);
+    // "כוסות" opens "כוסות סוכר" but not "כוסברה": a measure has to end the word.
     if (rest && !/^[\s.,]/.test(rest)) continue;
-    return { unit, rest: rest.replace(/^[\s.,]+/, "") };
+    return { unit: measure.unit, rest: rest.replace(/^[\s.,]+/, "") };
   }
   return null;
 }
@@ -100,12 +124,17 @@ export function parseShoppingLine(line: string): ShoppingLine {
   const counted = leadingQuantity(text);
   if (!counted) return whole;
 
-  const measured = leadingUnit(counted.rest);
+  const measured = leadingMeasure(counted.rest);
   const name = (measured?.rest ?? counted.rest).trim();
 
   // Nothing left once the measure is taken off — "2 כפות" on its own names no
   // product — so the line is better left as it was written.
   if (!name) return whole;
+
+  // A measure that means nothing in a shop takes its number with it: three
+  // cups of flour is one bag of flour, not three of anything. A bare count is
+  // a count of the product itself and stays — three eggs are three eggs.
+  if (measured && !measured.unit) return { name, quantity: 1, unit: DEFAULT_UNIT };
 
   return {
     name,

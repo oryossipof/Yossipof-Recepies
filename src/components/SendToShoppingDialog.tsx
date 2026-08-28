@@ -4,7 +4,7 @@ import { Check, Loader2, ShoppingCart, UserCog } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { navigate } from "@/lib/router";
 import { htmlToLines, htmlToText, isHeadingLine } from "@/lib/sanitize-html";
-import { normalizeProductName, parseShoppingLine } from "@/lib/shopping-line";
+import { normalizeProductName, parseShoppingLine, SHOPPING_UNITS } from "@/lib/shopping-line";
 import { addItems, fetchItemNames, fetchLists, type ShoppingList } from "@/lib/shopping-list";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ export function SendToShoppingDialog({
         chosen.map((row) => ({
           name: row.name.trim(),
           quantity: Number(row.quantity) > 0 ? Number(row.quantity) : 1,
-          unit: row.unit.trim(),
+          unit: row.unit,
           note: row.original === row.name.trim() ? null : `במתכון: ${row.original}`,
         })),
       );
@@ -300,13 +300,24 @@ export function SendToShoppingDialog({
                         aria-label="כמות"
                         className="h-9 w-16 text-center"
                       />
-                      <Input
+                      {/*
+                        The shopping app's own seven units, and only those: a
+                        unit typed freely here would reach a list whose own
+                        picker cannot offer it back.
+                      */}
+                      <select
                         value={row.unit}
                         onChange={(e) => patch(row.key, { unit: e.target.value })}
                         disabled={there}
                         aria-label="יחידה"
-                        className="h-9 w-20 text-center"
-                      />
+                        className="h-9 w-24 rounded-md border border-input bg-card px-2 text-sm disabled:opacity-50"
+                      >
+                        {SHOPPING_UNITS.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <p className="px-8 pt-1 text-xs text-muted-foreground">

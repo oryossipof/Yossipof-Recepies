@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_UNIT,
+  SHOPPING_UNITS,
   isValidPhone,
   normalizePhone,
   normalizeProductName,
@@ -9,13 +10,57 @@ import {
 } from "./shopping-line";
 
 describe("parseShoppingLine", () => {
-  it("lifts the quantity and the cooking unit off the product", () => {
-    expect(parseShoppingLine('1 ק"ג קמח')).toEqual({ name: "קמח", quantity: 1, unit: 'ק"ג' });
-    expect(parseShoppingLine("2 כפות סוכר")).toEqual({ name: "סוכר", quantity: 2, unit: "כפות" });
+  it("only ever answers with a unit the shopping app can show", () => {
+    const lines = [
+      '1 ק"ג קמח',
+      "2 כפות סוכר",
+      "3 ביצים",
+      "250 גרם חמאה",
+      "1 ליטר חלב",
+      "מלח ופלפל",
+    ];
+    for (const line of lines) {
+      expect(SHOPPING_UNITS).toContain(parseShoppingLine(line).unit);
+    }
+  });
+
+  it("turns a weight or a volume into the shop's own unit", () => {
+    expect(parseShoppingLine('1 ק"ג קמח')).toEqual({ name: "קמח", quantity: 1, unit: "ק״ג" });
+    expect(parseShoppingLine("2 קילו בשר")).toEqual({ name: "בשר", quantity: 2, unit: "ק״ג" });
+    expect(parseShoppingLine("250 גרם חמאה")).toEqual({
+      name: "חמאה",
+      quantity: 250,
+      unit: "גרם",
+    });
+    expect(parseShoppingLine('500 מ"ל שמנת')).toEqual({
+      name: "שמנת",
+      quantity: 500,
+      unit: "מ״ל",
+    });
+    expect(parseShoppingLine("2 חבילות בצק עלים")).toEqual({
+      name: "בצק עלים",
+      quantity: 2,
+      unit: "חבילה",
+    });
+  });
+
+  it("buys one of a thing measured in spoonfuls", () => {
+    // Sugar is sold by the bag however many spoons of it the recipe wants;
+    // the recipe's own measure travels to the list as a note instead.
+    expect(parseShoppingLine("2 כפות סוכר")).toEqual({
+      name: "סוכר",
+      quantity: 1,
+      unit: DEFAULT_UNIT,
+    });
     expect(parseShoppingLine("0.5 כפית סודה לשתייה")).toEqual({
       name: "סודה לשתייה",
-      quantity: 0.5,
-      unit: "כפית",
+      quantity: 1,
+      unit: DEFAULT_UNIT,
+    });
+    expect(parseShoppingLine("3 כוסות קמח")).toEqual({
+      name: "קמח",
+      quantity: 1,
+      unit: DEFAULT_UNIT,
     });
   });
 
