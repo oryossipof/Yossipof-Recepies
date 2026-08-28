@@ -38,8 +38,47 @@ type ProfileRow = {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
+  /**
+   * The phone number this person uses in the household's shopping-list app,
+   * which identifies people by phone rather than by account. It is the only
+   * thing joining the two apps, so it is kept here rather than on the device.
+   */
+  shopping_phone: string | null;
+  /** The list ingredients were last sent to, so the choice is not made twice. */
+  shopping_list_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/*
+ * The two tables below belong to the shopping-list app, which shares this
+ * Supabase project. They are declared here only so that sending ingredients to
+ * a shopping list type-checks. The recipe app reads its lists and inserts
+ * items; it never alters their structure and never writes anything else.
+ */
+
+type GroceryItemRow = {
+  id: string;
+  phone_number: string;
+  list_id: string | null;
+  name: string;
+  quantity: number;
+  unit: string;
+  image_url: string | null;
+  checked: boolean;
+  category: string | null;
+  notes: string | null;
+  added_at: string;
+};
+
+type SavedListRow = {
+  id: string;
+  phone_number: string;
+  name: string;
+  items: Json | null;
+  category_order: Json | null;
+  categories: Json | null;
+  created_at: string;
 };
 
 type CategoryRow = {
@@ -95,9 +134,14 @@ export interface Database {
       };
       recipe_profiles: {
         Row: ProfileRow;
-        Insert: Omit<ProfileRow, "created_at" | "updated_at"> & {
+        Insert: Omit<
+          ProfileRow,
+          "created_at" | "updated_at" | "shopping_phone" | "shopping_list_id"
+        > & {
           created_at?: string;
           updated_at?: string;
+          shopping_phone?: string | null;
+          shopping_list_id?: string | null;
         };
         Update: Partial<ProfileRow>;
         Relationships: [];
@@ -124,6 +168,25 @@ export interface Database {
         Row: CookLogRow;
         Insert: Omit<CookLogRow, "id" | "created_at"> & { id?: string; created_at?: string };
         Update: Partial<CookLogRow>;
+        Relationships: [];
+      };
+
+      // The shopping-list app's own tables — see the note above their rows.
+      grocery_items: {
+        Row: GroceryItemRow;
+        Insert: Omit<GroceryItemRow, "id" | "added_at" | "quantity" | "unit"> & {
+          id?: string;
+          added_at?: string;
+          quantity?: number;
+          unit?: string;
+        };
+        Update: Partial<GroceryItemRow>;
+        Relationships: [];
+      };
+      saved_lists: {
+        Row: SavedListRow;
+        Insert: Omit<SavedListRow, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<SavedListRow>;
         Relationships: [];
       };
     };

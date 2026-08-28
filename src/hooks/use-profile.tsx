@@ -15,10 +15,22 @@ import { useAuth } from "./use-auth";
 
 export type Profile = Database["public"]["Tables"]["recipe_profiles"]["Row"];
 
+type ProfileChanges = {
+  display_name?: string;
+  avatar_url?: string | null;
+  shopping_phone?: string | null;
+  shopping_list_id?: string | null;
+};
+
 type ProfileContextValue = {
   profile: Profile | null;
   loading: boolean;
-  save: (changes: { display_name?: string; avatar_url?: string | null }) => Promise<void>;
+  /**
+   * The changes a person can make to their own profile: their name, their
+   * picture, the phone number that links them to the shopping-list app, and
+   * the list they last sent ingredients to.
+   */
+  save: (changes: ProfileChanges) => Promise<void>;
 };
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -74,7 +86,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [userId, user?.email]);
 
   const save = useCallback(
-    async (changes: { display_name?: string; avatar_url?: string | null }) => {
+    async (changes: ProfileChanges) => {
       if (!userId) throw new Error("צריך להתחבר");
 
       const { data, error } = await supabase

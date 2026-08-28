@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/Notice";
+import { isValidPhone, normalizePhone } from "@/lib/shopping-line";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -19,6 +20,7 @@ const TITLES: Record<Mode, string> = {
 export function AuthScreen() {
   const [mode, setMode] = useState<Mode>("signin");
   const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,7 +44,12 @@ export function AuthScreen() {
         await signIn(email, password);
         // The auth listener swaps this screen out for the app.
       } else if (mode === "signup") {
-        await signUp(email, password, displayName);
+        // Optional, and only useful to someone who also keeps the household
+        // shopping list — but asking here saves them finding the setting later.
+        if (phone && !isValidPhone(phone)) {
+          throw new Error("מספר טלפון צריך להיות בן 10 ספרות, או להישאר ריק");
+        }
+        await signUp(email, password, displayName, normalizePhone(phone));
         setMessage(
           "נשלח אליכם מייל לאישור הכתובת. אם ההרשמה כבר פעילה — אפשר פשוט להתחבר.",
         );
@@ -85,6 +92,30 @@ export function AuthScreen() {
                 autoComplete="name"
                 required
               />
+            </div>
+          )}
+
+          {/*
+            The shopping-list app knows people by phone number rather than by
+            account, so this is what lets a recipe send its ingredients there.
+            Nobody needs it to keep recipes, hence optional and explained.
+          */}
+          {mode === "signup" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">מספר טלפון (לא חובה)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                dir="ltr"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                autoComplete="tel"
+                placeholder="0501234567"
+              />
+              <p className="text-xs text-muted-foreground">
+                המספר שבו משתמשים באפליקציית רשימת הקניות, כדי שאפשר יהיה לשלוח אליה רכיבים
+                ממתכון. אפשר להוסיף אותו גם אחר כך בפרטי המשתמש.
+              </p>
             </div>
           )}
 

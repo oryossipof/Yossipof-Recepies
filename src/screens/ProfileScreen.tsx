@@ -11,6 +11,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { uploadAvatar } from "@/lib/images";
 import { applyTheme, readTheme, writeTheme, type Theme } from "@/lib/theme";
 import { Avatar } from "@/components/Avatar";
+import { isValidPhone, normalizePhone } from "@/lib/shopping-line";
 import { Notice } from "@/components/Notice";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export function ProfileScreen() {
   const { profile, loading, save } = useProfile();
 
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -40,15 +42,23 @@ export function ProfileScreen() {
   const [theme, setTheme] = useState<Theme>(readTheme);
 
   useEffect(() => {
-    if (profile) setName(profile.display_name ?? "");
+    if (!profile) return;
+    setName(profile.display_name ?? "");
+    setPhone(profile.shopping_phone ?? "");
   }, [profile]);
 
-  async function saveName() {
+  async function saveDetails() {
     setSavingProfile(true);
     setProfileError(null);
     setProfileSaved(false);
     try {
-      await save({ display_name: name.trim() });
+      // An empty field means "I do not use the shopping list", which has to
+      // be storable — hence null rather than an empty string.
+      const digits = normalizePhone(phone);
+      if (digits && !isValidPhone(digits)) {
+        throw new Error("מספר טלפון צריך להיות בן 10 ספרות, או להישאר ריק");
+      }
+      await save({ display_name: name.trim(), shopping_phone: digits || null });
       setProfileSaved(true);
     } catch (e) {
       setProfileError(e instanceof Error ? e.message : "שמירת הפרטים נכשלה");
@@ -146,10 +156,33 @@ export function ProfileScreen() {
             />
           </div>
 
+          {/*
+            The one thing joining this app to the household shopping list,
+            which knows people by phone number rather than by account. Without
+            it a recipe has nowhere to send its ingredients; with it, nothing
+            else is ever asked.
+          */}
+          <div className="space-y-1.5">
+            <Label htmlFor="shopping-phone">מספר טלפון לרשימת הקניות</Label>
+            <Input
+              id="shopping-phone"
+              type="tel"
+              dir="ltr"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={loading}
+              placeholder="0501234567"
+            />
+            <p className="text-xs text-muted-foreground">
+              המספר שבו משתמשים באפליקציית רשימת הקניות. הוא מאפשר לשלוח רכיבים ממתכון
+              ישירות לרשימה. אפשר להשאיר ריק.
+            </p>
+          </div>
+
           {profileError && <Notice kind="error">{profileError}</Notice>}
           {profileSaved && <Notice kind="success">הפרטים נשמרו.</Notice>}
 
-          <Button onClick={() => void saveName()} disabled={savingProfile || loading}>
+          <Button onClick={() => void saveDetails()} disabled={savingProfile || loading}>
             {savingProfile && <Loader2 className="animate-spin" />}
             שמירה
           </Button>

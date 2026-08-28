@@ -105,13 +105,18 @@ export function signIn(email: string, password: string): Promise<void> {
   return run(supabase.auth.signInWithPassword({ email: email.trim(), password }));
 }
 
-export function signUp(email: string, password: string, displayName: string): Promise<void> {
+export function signUp(
+  email: string,
+  password: string,
+  displayName: string,
+  shoppingPhone: string,
+): Promise<void> {
   return run(
     supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: { display_name: displayName.trim() },
+        data: { display_name: displayName.trim(), shopping_phone: shoppingPhone },
         emailRedirectTo: redirectTo(),
       },
     }),

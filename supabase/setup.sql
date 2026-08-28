@@ -15,13 +15,23 @@
 -- שורה אחת לכל משתמש רשום: השם והתמונה שמוצגים ליד כל מתכון
 -- שהוא העלה.
 
+-- shopping_phone מקשר את המשתמש לאפליקציית רשימת הקניות, שמזהה אנשים לפי
+-- מספר טלפון ולא לפי חשבון. shopping_list_id זוכר לאיזו רשימה נשלחו רכיבים
+-- בפעם האחרונה. שניהם אופציונליים — מי שלא משתמש ברשימת הקניות לא צריך אותם.
 CREATE TABLE IF NOT EXISTS public.recipe_profiles (
-  id           UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  display_name TEXT,
-  avatar_url   TEXT,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  id               UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name     TEXT,
+  avatar_url       TEXT,
+  shopping_phone   TEXT,
+  shopping_list_id UUID,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- קיים כבר? מוסיפים רק את העמודות החדשות.
+ALTER TABLE public.recipe_profiles
+  ADD COLUMN IF NOT EXISTS shopping_phone   TEXT,
+  ADD COLUMN IF NOT EXISTS shopping_list_id UUID;
 
 
 -- ------------------------------------------------------------
@@ -162,10 +172,12 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  INSERT INTO public.recipe_profiles (id, display_name)
+  INSERT INTO public.recipe_profiles (id, display_name, shopping_phone)
   VALUES (
     NEW.id,
-    COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'display_name', ''), split_part(NEW.email, '@', 1))
+    COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'display_name', ''), split_part(NEW.email, '@', 1)),
+    -- מספר טלפון שהוזן בהרשמה מגיע במטא-דאטה של המשתמש.
+    NULLIF(NEW.raw_user_meta_data ->> 'shopping_phone', '')
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;

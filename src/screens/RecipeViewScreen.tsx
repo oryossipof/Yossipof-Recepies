@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChefHat, CookingPot, Pencil, Star, Trash2 } from "lucide-react";
+import { ChefHat, CookingPot, Pencil, ShoppingCart, Star, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CookedDifferentlyDialog } from "@/components/CookedDifferentlyDialog";
+import { SendToShoppingDialog } from "@/components/SendToShoppingDialog";
 import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
@@ -53,6 +54,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
   const [confirming, setConfirming] = useState(false);
   const [cooking, setCooking] = useState(false);
+  const [shopping, setShopping] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,6 +118,15 @@ export function RecipeViewScreen({ id }: { id: string }) {
               onClick={() => void toggleFavorite(recipe.id)}
             >
               <Star className={cn(recipe.isFavorite && "fill-star text-star")} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="הוספה לרשימת הקניות"
+              onClick={() => setShopping(true)}
+            >
+              <ShoppingCart />
             </Button>
 
             {isOwner && (
@@ -185,6 +196,10 @@ export function RecipeViewScreen({ id }: { id: string }) {
           Above the recipe rather than below it: this is the button pressed
           on the way to the stove, not after reading to the end.
         */}
+        {/*
+          Above the recipe rather than below it: this is the button pressed
+          on the way to the stove, not after reading to the end.
+        */}
         <Button size="lg" className="w-full" onClick={() => navigate(`/cook/${recipe.id}`)}>
           <CookingPot />
           מצב בישול
@@ -192,6 +207,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
         <Section emoji="🧾" title="רכיבים">
           <RichText html={recipe.ingredients_html} />
+
         </Section>
 
         <Section emoji="👩‍🍳" title="אופן ההכנה">
@@ -262,6 +278,12 @@ export function RecipeViewScreen({ id }: { id: string }) {
           </Section>
         )}
       </main>
+
+      <SendToShoppingDialog
+        open={shopping}
+        onClose={() => setShopping(false)}
+        ingredientsHtml={recipe.ingredients_html}
+      />
 
       {recipe.nutrition && (
         <CookedDifferentlyDialog
