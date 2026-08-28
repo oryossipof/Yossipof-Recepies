@@ -36,6 +36,15 @@ type Placement = { edge: "top" | "bottom"; offset: number };
 /** Taller than any browser toolbar, shorter than any keyboard. */
 const KEYBOARD_HEIGHT = 150;
 
+/**
+ * The height of the page with no keyboard over it, kept from the last moment
+ * nobody was typing. Browsers that shrink the layout viewport for the keyboard
+ * leave no gap between the two viewports to measure, so this is the only thing
+ * left to compare against — and it lives outside the hook so that a banner
+ * appearing mid-edit still has a resting height to remember.
+ */
+let restingHeight = document.documentElement.clientHeight;
+
 /** True when the focus is in something a keyboard would have opened for. */
 function typingOnATouchScreen(): boolean {
   if (!window.matchMedia("(pointer: coarse)").matches) return false;
@@ -54,8 +63,21 @@ function usePlacement(): Placement {
       // The gap between the page and the part of it on screen: whatever is
       // covering the foot of the layout viewport.
       const covered = viewport ? layout - viewport.height - viewport.offsetTop : 0;
+      const typing = typingOnATouchScreen();
 
-      if (covered > KEYBOARD_HEIGHT || typingOnATouchScreen()) {
+      // Nobody is typing, so this is the page at rest — including after a
+      // rotation, which changes the height without a keyboard being involved.
+      if (!typing) restingHeight = layout;
+
+      // A keyboard is up when the visible part of the page is a keyboard's
+      // worth shorter than the page, or — where the keyboard shrinks the page
+      // itself — when the page is that much shorter than it rests at. Focus
+      // alone is never enough: it stays in the field after the keyboard is
+      // dismissed, and the warning would be stranded at the top of the screen.
+      const keyboardOpen =
+        covered > KEYBOARD_HEIGHT || (typing && restingHeight - layout > KEYBOARD_HEIGHT);
+
+      if (keyboardOpen) {
         // The visual viewport slides the page up to keep the caret in sight, so
         // its offset is where the top of what the user can see now is — except
         // that the screen header may be sitting there, and burying its save
@@ -72,33 +94,22 @@ function usePlacement(): Placement {
       setPlacement({ edge: "bottom", offset: lift });
     }
 
-    // On the way out of a field the focus rests on the body for an instant
-    // before reaching the next one; measuring a tick later keeps the banner
-    // from flicking down to the foot of the screen and back between two fields.
-    let pending = 0;
-    function remeasure() {
-      window.clearTimeout(pending);
-      pending = window.setTimeout(measure, 0);
-    }
-
     measure();
     const viewport = window.visualViewport;
     viewport?.addEventListener("resize", measure);
     viewport?.addEventListener("scroll", measure);
     window.addEventListener("resize", measure);
-    // The focus moves before the keyboard has finished animating, and on the
-    // Android browsers that resize the layout there is no viewport event to
-    // read at all, so the field being edited is watched as well.
+    // Where the keyboard resizes the page rather than the viewport there is no
+    // viewport event to read, so the field being edited is watched as well.
     window.addEventListener("focusin", measure);
-    window.addEventListener("focusout", remeasure);
+    window.addEventListener("focusout", measure);
 
     return () => {
       viewport?.removeEventListener("resize", measure);
       viewport?.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
       window.removeEventListener("focusin", measure);
-      window.removeEventListener("focusout", remeasure);
-      window.clearTimeout(pending);
+      window.removeEventListener("focusout", measure);
     };
   }, []);
 
