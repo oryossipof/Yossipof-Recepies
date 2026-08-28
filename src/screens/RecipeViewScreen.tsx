@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChefHat, Pencil, Star, Trash2 } from "lucide-react";
+import { ChefHat, CookingPot, Pencil, Star, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
@@ -180,6 +180,15 @@ export function RecipeViewScreen({ id }: { id: string }) {
             </div>
           )}
         </div>
+
+        {/*
+          Above the recipe rather than below it: this is the button pressed
+          on the way to the stove, not after reading to the end.
+        */}
+        <Button size="lg" className="w-full" onClick={() => navigate(`/cook/${recipe.id}`)}>
+          <CookingPot />
+          מצב בישול
+        </Button>
 
         <Section emoji="🧾" title="רכיבים">
           <RichText html={recipe.ingredients_html} />

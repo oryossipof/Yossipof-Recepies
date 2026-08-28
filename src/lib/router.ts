@@ -9,6 +9,7 @@ export type Route =
   | { name: "recipe"; id: string }
   | { name: "new" }
   | { name: "edit"; id: string }
+  | { name: "cook"; id: string }
   | { name: "categories" }
   | { name: "profile" };
 
@@ -23,6 +24,8 @@ function parse(hash: string): Route {
       return tail ? { name: "recipe", id: tail } : HOME;
     case "edit":
       return tail ? { name: "edit", id: tail } : HOME;
+    case "cook":
+      return tail ? { name: "cook", id: tail } : HOME;
     case "new":
       return { name: "new" };
     case "categories":

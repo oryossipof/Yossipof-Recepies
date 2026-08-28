@@ -7,6 +7,7 @@ import { RecipesProvider } from "@/hooks/use-recipes";
 import { useRoute } from "@/lib/router";
 import { AuthScreen } from "@/screens/AuthScreen";
 import { CategoriesScreen } from "@/screens/CategoriesScreen";
+import { CookingScreen } from "@/screens/CookingScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { RecipeEditScreen } from "@/screens/RecipeEditScreen";
@@ -48,6 +49,8 @@ function Screens() {
   switch (route.name) {
     case "recipe":
       return <RecipeViewScreen id={route.id} />;
+    case "cook":
+      return <CookingScreen id={route.id} />;
     case "new":
       return <RecipeEditScreen />;
     case "edit":
