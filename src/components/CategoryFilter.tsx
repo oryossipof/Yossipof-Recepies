@@ -121,7 +121,7 @@ export function CategoryFilter({
         }}
       >
         <DialogContent className="max-h-[80dvh] gap-3 overflow-hidden sm:max-w-md">
-          <DialogHeader className="pr-7 text-right sm:text-right">
+          <DialogHeader className="pe-7">
             <DialogTitle>כל הקטגוריות</DialogTitle>
             <DialogDescription>
               אפשר לסמן כמה קטגוריות; יוצגו המתכונים ששייכים לאחת מהן.
