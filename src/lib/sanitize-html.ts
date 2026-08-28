@@ -35,6 +35,14 @@ const ALLOWED_STYLE_PROPS = new Set([
   "text-align",
 ]);
 
+/**
+ * Tags whose contents go with them. Every other unknown tag is unwrapped so
+ * that its words survive — but the words inside these are code, not recipe,
+ * and unwrapping a <script> pasted from a web page prints its source into the
+ * ingredient list.
+ */
+const DROPPED_WHOLE = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "IFRAME", "TEMPLATE", "OBJECT"]);
+
 function cleanStyle(value: string): string {
   return value
     .split(";")
@@ -49,6 +57,11 @@ function cleanStyle(value: string): string {
 function scrub(node: Element): void {
   // Walk a copy of the list: unwrapping a child mutates the live collection.
   for (const child of Array.from(node.children)) scrub(child);
+
+  if (DROPPED_WHOLE.has(node.tagName)) {
+    node.remove();
+    return;
+  }
 
   if (!ALLOWED_TAGS.has(node.tagName)) {
     // Keep the words, drop the tag.
@@ -86,6 +99,71 @@ export function htmlToText(html: string | null | undefined): string {
   if (!html) return "";
   const doc = new DOMParser().parseFromString(html, "text/html");
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+/** The block-level tags the editor produces, each of which reads as a line. */
+const LINE_BLOCKS = new Set(["P", "LI", "DIV"]);
+
+/**
+ * The lines of a stored field, as HTML — one per list item, paragraph or line
+ * break, with the inline formatting kept.
+ *
+ * Reading a recipe straight through only needs the field rendered whole. Cooking
+ * from it needs the lines apart, so that an ingredient already in the bowl can be
+ * ticked off and a step already done can be dimmed.
+ */
+export function htmlToLines(html: string | null | undefined): string[] {
+  const safe = sanitize(html);
+  if (!safe) return [];
+
+  const doc = new DOMParser().parseFromString(`<div>${safe}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return [];
+
+  const lines: string[] = [];
+
+  function take(fragment: string): void {
+    // A break inside a paragraph is a line of its own: that is how a list
+    // someone typed without making it a list is stored.
+    for (const part of fragment.split(/<br\s*\/?>/i)) {
+      const line = part.trim();
+      if (htmlToText(line)) lines.push(line);
+    }
+  }
+
+  function walk(node: Element): void {
+    // Inline content collects until a block interrupts it, so that a stray
+    // heading beside a list — "לבצק:" above the dough — keeps its own line.
+    let inline = "";
+
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === 3) {
+        inline += escapeHtml(child.textContent ?? "");
+        continue;
+      }
+      if (child.nodeType !== 1) continue;
+
+      const element = child as Element;
+      const isBlock =
+        LINE_BLOCKS.has(element.tagName) ||
+        element.tagName === "UL" ||
+        element.tagName === "OL";
+
+      if (!isBlock) {
+        inline += element.outerHTML;
+        continue;
+      }
+
+      take(inline);
+      inline = "";
+      walk(element);
+    }
+
+    take(inline);
+  }
+
+  walk(root);
+  return lines;
 }
 
 /** True when a field holds nothing a reader would see. */
