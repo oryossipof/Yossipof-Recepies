@@ -6,7 +6,7 @@ import { useRecipes, type RecipeInput } from "@/hooks/use-recipes";
 import type { Nutrition } from "@/integrations/supabase/types";
 import { uploadRecipeImage } from "@/lib/images";
 import { isNutritionStale } from "@/lib/nutrition";
-import { navigate } from "@/lib/router";
+import { returnTo } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import type { ParsedRecipe, SourceKind } from "@/lib/parse-recipe";
 import { isBlankHtml } from "@/lib/sanitize-html";
@@ -150,13 +150,15 @@ export function RecipeEditScreen({ id }: { id?: string }) {
     setSaving(true);
     setError(null);
     try {
-      // Replace rather than push: "back" from the saved recipe should reach the
-      // list, not return to a form that has already been submitted.
+      // The editor's history entry leaves with it: "back" from the saved
+      // recipe should reach the list, not a form that has already been
+      // submitted, and not a second copy of the recipe left behind by the
+      // last time it was edited.
       if (id) {
         await updateRecipe(id, input);
-        navigate(`/recipe/${id}`, { replace: true });
+        returnTo(`/recipe/${id}`);
       } else {
-        navigate(`/recipe/${await createRecipe(input)}`, { replace: true });
+        returnTo(`/recipe/${await createRecipe(input)}`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "שמירת המתכון נכשלה");
