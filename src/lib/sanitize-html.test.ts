@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { htmlToLines, htmlToText, isBlankHtml, sanitize, textToHtml } from "./sanitize-html";
+import {
+  htmlToLines,
+  htmlToText,
+  isBlankHtml,
+  isHeadingLine,
+  sanitize,
+  textToHtml,
+} from "./sanitize-html";
 
 describe("sanitize", () => {
   it("keeps the formatting a pasted recipe carries", () => {
@@ -76,5 +83,31 @@ describe("htmlToLines", () => {
 
   it("reads plain text with no markup at all as one line", () => {
     expect(htmlToLines("קמח")).toEqual(["קמח"]);
+  });
+});
+
+describe("isHeadingLine", () => {
+  it("takes a bold line that ends in a colon as a heading", () => {
+    expect(isHeadingLine("<b>לבצק:</b>")).toBe(true);
+    expect(isHeadingLine("<strong>לבשר:</strong>")).toBe(true);
+    expect(isHeadingLine('<span style="font-weight:700">לרוטב:</span>')).toBe(true);
+  });
+
+  it("wants both marks, not either one", () => {
+    expect(isHeadingLine("<b>לבצק</b>")).toBe(false);
+    expect(isHeadingLine("לבצק:")).toBe(false);
+  });
+
+  it("leaves a step that opens by naming itself alone", () => {
+    expect(isHeadingLine("<b>הכנת הבצק:</b> מערבבים את השמרים")).toBe(false);
+  });
+
+  it("is not fooled by an ingredient with a bold quantity", () => {
+    expect(isHeadingLine('1 ק"ג <b>קמח</b>')).toBe(false);
+    expect(isHeadingLine("<b>2</b> כפות סוכר")).toBe(false);
+  });
+
+  it("counts bold nested inside bold once", () => {
+    expect(isHeadingLine('<b><span style="font-weight:700">לבצק:</span></b>')).toBe(true);
   });
 });

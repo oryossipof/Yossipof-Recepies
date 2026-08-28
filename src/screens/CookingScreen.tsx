@@ -4,12 +4,31 @@ import { Check, Lightbulb, X } from "lucide-react";
 import { useRecipes } from "@/hooks/use-recipes";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { goBack } from "@/lib/router";
-import { htmlToLines, isBlankHtml } from "@/lib/sanitize-html";
+import { htmlToLines, isBlankHtml, isHeadingLine } from "@/lib/sanitize-html";
 import { cn } from "@/lib/utils";
 import { Notice } from "@/components/Notice";
 import { RichText } from "@/components/RichText";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
+
+type Row = {
+  key: string;
+  html: string;
+  /** A heading names the part of the dish the rows under it belong to. */
+  heading: boolean;
+  /** The step's number, counted past the headings, which are not steps. */
+  number: number;
+};
+
+function toRows(html: string | null | undefined, prefix: string): Row[] {
+  let counted = 0;
+
+  return htmlToLines(html).map((line, index) => {
+    const heading = isHeadingLine(line);
+    if (!heading) counted += 1;
+    return { key: `${prefix}-${index}`, html: line, heading, number: counted };
+  });
+}
 
 /**
  * The recipe as it is needed at the stove, rather than as it is read on the
@@ -31,8 +50,8 @@ export function CookingScreen({ id }: { id: string }) {
 
   const recipe = recipes.find((r) => r.id === id);
 
-  const ingredients = useMemo(() => htmlToLines(recipe?.ingredients_html), [recipe]);
-  const steps = useMemo(() => htmlToLines(recipe?.instructions_html), [recipe]);
+  const ingredients = useMemo(() => toRows(recipe?.ingredients_html, "ing"), [recipe]);
+  const steps = useMemo(() => toRows(recipe?.instructions_html, "step"), [recipe]);
 
   function toggle(key: string) {
     setDone((current) => {
@@ -101,12 +120,12 @@ export function CookingScreen({ id }: { id: string }) {
           </h2>
 
           <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
-            {ingredients.map((line, index) => (
+            {ingredients.map((row) => (
               <Line
-                key={`ing-${index}`}
-                html={line}
-                done={done.has(`ing-${index}`)}
-                onToggle={() => toggle(`ing-${index}`)}
+                key={row.key}
+                row={row}
+                done={done.has(row.key)}
+                onToggle={() => toggle(row.key)}
               />
             ))}
           </ul>
@@ -119,13 +138,13 @@ export function CookingScreen({ id }: { id: string }) {
           </h2>
 
           <ol className="divide-y divide-border rounded-2xl border border-border bg-card">
-            {steps.map((line, index) => (
+            {steps.map((row) => (
               <Line
-                key={`step-${index}`}
-                html={line}
-                number={index + 1}
-                done={done.has(`step-${index}`)}
-                onToggle={() => toggle(`step-${index}`)}
+                key={row.key}
+                row={row}
+                numbered
+                done={done.has(row.key)}
+                onToggle={() => toggle(row.key)}
               />
             ))}
           </ol>
@@ -146,21 +165,40 @@ export function CookingScreen({ id }: { id: string }) {
 }
 
 /**
- * One tappable line. The whole row is the target — a fingertip in the kitchen
- * is neither clean nor accurate, and a small checkbox would ask for precision
- * nobody has while stirring.
+ * One line of the recipe.
+ *
+ * A heading — "לבצק:", "לבשר:" — names the part of the dish that follows, so it
+ * is printed as a heading and nothing more: there is nothing to tick off, and a
+ * circle beside it would invite the cook to try.
+ *
+ * Everything else is tappable, and the whole row is the target: a fingertip in
+ * the kitchen is neither clean nor accurate, and a small checkbox would ask for
+ * precision nobody has while stirring.
  */
 function Line({
-  html,
-  number,
+  row,
+  numbered = false,
   done,
   onToggle,
 }: {
-  html: string;
-  number?: number;
+  row: Row;
+  numbered?: boolean;
   done: boolean;
   onToggle: () => void;
 }) {
+  const { html, heading, number } = row;
+
+  if (heading) {
+    return (
+      <li
+        className="rich-text bg-muted/50 px-4 py-2.5 text-base font-bold"
+        // Already sanitised: htmlToLines runs the field through sanitize()
+        // before ever cutting it into lines.
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
   return (
     <li>
       <button
@@ -178,7 +216,7 @@ function Line({
               : "border-border text-muted-foreground",
           )}
         >
-          {done ? <Check className="size-4" /> : number}
+          {done ? <Check className="size-4" /> : numbered ? number : null}
         </span>
 
         <span
@@ -187,7 +225,7 @@ function Line({
             // An ingredient is struck off a list; a step is a paragraph, and a
             // rule drawn through ten lines of it is harder to read past than
             // the dimming alone.
-            done && (number ? "text-muted-foreground" : "text-muted-foreground line-through"),
+            done && (numbered ? "text-muted-foreground" : "text-muted-foreground line-through"),
           )}
           // Already sanitised: htmlToLines runs the field through sanitize()
           // before ever cutting it into lines.

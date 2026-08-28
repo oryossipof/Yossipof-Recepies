@@ -94,11 +94,16 @@ export function sanitize(html: string | null | undefined): string {
   return root.innerHTML.trim();
 }
 
+/** Markup carries line breaks and indentation that the words do not. */
+function normalizeSpace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 /** Plain text of an HTML fragment — used for search and for empty checks. */
 export function htmlToText(html: string | null | undefined): string {
   if (!html) return "";
   const doc = new DOMParser().parseFromString(html, "text/html");
-  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+  return normalizeSpace(doc.body.textContent ?? "");
 }
 
 /** The block-level tags the editor produces, each of which reads as a line. */
@@ -164,6 +169,51 @@ export function htmlToLines(html: string | null | undefined): string[] {
 
   walk(root);
   return lines;
+}
+
+/** Bold as this editor writes it, and as Word and Google Docs paste it. */
+function isBoldElement(element: Element): boolean {
+  if (element.tagName === "B" || element.tagName === "STRONG") return true;
+
+  const weight = (element as HTMLElement).style?.fontWeight.trim().toLowerCase() ?? "";
+  if (!weight) return false;
+  return weight === "bold" || weight === "bolder" || Number(weight) >= 600;
+}
+
+/**
+ * True when a line of a field is a heading rather than a thing.
+ *
+ * "לבצק:" and "לבשר:" are written as list items like every ingredient around
+ * them, so nothing in the markup separates them — except that a cook writing a
+ * heading bolds it and ends it with a colon, and never does both to a real
+ * ingredient. Both are required: bold alone is emphasis on a quantity that
+ * matters, and a colon alone belongs to a step that opens by naming itself.
+ */
+export function isHeadingLine(lineHtml: string): boolean {
+  const text = htmlToText(lineHtml);
+  if (!text.endsWith(":")) return false;
+
+  const doc = new DOMParser().parseFromString(`<div>${lineHtml}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return false;
+
+  // The whole line has to be bold, not just the word that opens it: a step
+  // beginning "הכנת הבצק: מערבבים…" is a step, however its first words look.
+  let bold = "";
+  for (const element of Array.from(root.querySelectorAll("*"))) {
+    if (!isBoldElement(element)) continue;
+    // Bold inside bold — <b><span style="font-weight:700">…</span></b>, which
+    // is what a paste can produce — is the same text twice.
+    let ancestor = element.parentElement;
+    let nested = false;
+    while (ancestor && ancestor !== root) {
+      if (isBoldElement(ancestor)) nested = true;
+      ancestor = ancestor.parentElement;
+    }
+    if (!nested) bold += element.textContent ?? "";
+  }
+
+  return normalizeSpace(bold) === text;
 }
 
 /** True when a field holds nothing a reader would see. */
