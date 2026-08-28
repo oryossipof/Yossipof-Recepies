@@ -192,8 +192,15 @@ export function SendToShoppingDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      {/*
+        A recipe can carry twenty ingredients, so this dialog scrolls — and the
+        title has to stay put while it does, or halfway down a list there is
+        nothing on screen saying what the list is for. The panel is therefore a
+        column: a header that stays, a middle that scrolls, and the send button
+        held at the foot where it can be reached without scrolling back.
+      */}
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6">
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="size-5" />
             הוספה לרשימת הקניות
@@ -209,7 +216,7 @@ export function SendToShoppingDialog({
           asks. Without one there is nothing to show and nowhere to send.
         */}
         {!phone ? (
-          <div className="space-y-3">
+          <div className="space-y-3 px-6 py-5">
             <Notice kind="error">
               כדי להוסיף לרשימת הקניות צריך להזין מספר טלפון בפרטי המשתמש.
             </Notice>
@@ -224,17 +231,18 @@ export function SendToShoppingDialog({
             </Button>
           </div>
         ) : loading ? (
-          <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <p className="flex items-center gap-2 px-6 py-6 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             טוען את הרשימות…
           </p>
         ) : lists.length === 0 ? (
-          <Notice kind="error">
+          <Notice kind="error" className="mx-6 my-5">
             לא נמצאו רשימות למספר הזה. אפשר לבדוק את המספר בפרטי המשתמש, או לפתוח רשימה
             באפליקציית הקניות.
           </Notice>
         ) : (
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
             <div className="space-y-1.5">
               <Label htmlFor="shopping-list">הרשימה</Label>
               <select
@@ -258,7 +266,7 @@ export function SendToShoppingDialog({
               </Button>
             </div>
 
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
               {rows.map((row) => {
                 const there = alreadyThere(row);
                 return (
@@ -272,7 +280,7 @@ export function SendToShoppingDialog({
                         disabled={there}
                         onClick={() => patch(row.key, { wanted: !row.wanted })}
                         className={cn(
-                          "flex size-6 shrink-0 items-center justify-center rounded border transition-colors",
+                          "flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors",
                           row.wanted
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-input",
@@ -328,17 +336,23 @@ export function SendToShoppingDialog({
               })}
             </ul>
 
-            {error && <Notice kind="error">{error}</Notice>}
-            {sent && <Notice kind="success">{sent}</Notice>}
+            </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={onClose}>
-                סגירה
-              </Button>
-              <Button onClick={() => void send()} disabled={sending || chosen.length === 0}>
-                {sending ? <Loader2 className="animate-spin" /> : <ShoppingCart />}
-                {chosen.length > 0 ? `הוספה (${chosen.length})` : "הוספה"}
-              </Button>
+            {/* Held at the foot: the answer to "how many did I tick" and the
+                way to send them should not be a scroll away. */}
+            <div className="shrink-0 space-y-3 border-t border-border px-6 py-4">
+              {error && <Notice kind="error">{error}</Notice>}
+              {sent && <Notice kind="success">{sent}</Notice>}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={onClose}>
+                  סגירה
+                </Button>
+                <Button onClick={() => void send()} disabled={sending || chosen.length === 0}>
+                  {sending ? <Loader2 className="animate-spin" /> : <ShoppingCart />}
+                  {chosen.length > 0 ? `הוספה (${chosen.length})` : "הוספה"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
