@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useCookLog } from "@/hooks/use-cook-log";
 import { useRecipes } from "@/hooks/use-recipes";
-import { isEmptyNutrition } from "@/lib/nutrition";
+import { isEmptyNutrition, isNutritionStale } from "@/lib/nutrition";
 import { goHome, navigate } from "@/lib/router";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import { cn } from "@/lib/utils";
@@ -81,6 +81,11 @@ export function RecipeViewScreen({ id }: { id: string }) {
   }
 
   const isOwner = recipe.user_id === user?.id;
+  // The same check the editor makes, made here on the saved recipe: an
+  // ingredient changed and saved without the figures being recalculated
+  // leaves the two describing different dishes, and only the basis stored
+  // alongside the numbers can tell.
+  const nutritionStale = isNutritionStale(recipe.nutrition, recipe.ingredients_html);
   const author = recipe.author?.display_name ?? "משתמש";
   const recipeCategories = categories.filter((c) => recipe.categoryIds.includes(c.id));
 
@@ -192,6 +197,30 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
         {!isEmptyNutrition(recipe.nutrition) && recipe.nutrition && (
           <Section emoji="🔥" title="ערכים תזונתיים">
+            {/*
+              Ahead of the table rather than under it: the numbers are the
+              thing being doubted, so the doubt has to arrive first.
+            */}
+            {nutritionStale && (
+              <div className="space-y-2">
+                <Notice kind="error">
+                  הרכיבים השתנו מאז שהערכים חושבו, והמספרים כאן עדיין מתארים את הרשימה הקודמת.
+                  {isOwner && " אפשר לחשב אותם מחדש בעריכת המתכון."}
+                </Notice>
+
+                {isOwner && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/edit/${recipe.id}`)}
+                  >
+                    <Pencil />
+                    עריכה וחישוב מחדש
+                  </Button>
+                )}
+              </div>
+            )}
+
             <NutritionPanel nutrition={recipe.nutrition} />
             <p className="text-xs text-muted-foreground">
               הערכה בלבד, מחושבת על ידי ה-AI לפי הרכיבים והכמויות.
