@@ -23,7 +23,6 @@ const recipe: SharedRecipe = {
   },
   author: "סבתא",
   categories: ["קינוחים", "אפייה"],
-  url: "https://example.com/#/recipe/abc",
 };
 
 describe("recipeSections", () => {

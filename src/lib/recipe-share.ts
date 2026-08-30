@@ -3,13 +3,12 @@ import { isEmptyNutrition, perPortion } from "./nutrition";
 import { htmlToLines, htmlToText, isBlankHtml, isHeadingLine } from "./sanitize-html";
 
 /*
- * A recipe on its way out of the app.
+ * A recipe on its way onto paper.
  *
- * What leaves is always the PDF — shared to whichever app the phone offers, or
- * downloaded — so this file describes the recipe once, in the pieces the page
- * is drawn from, and recipe-pdf.ts draws it. Nothing here reaches the network
- * or the database: a shared recipe is the recipe exactly as it is saved, and
- * nothing about the sharing is written back.
+ * What leaves is the PDF, so this file describes the recipe once, in the pieces
+ * the page is drawn from, and recipe-pdf.ts draws it. Nothing here reaches the
+ * network or the database: the printed recipe is the recipe exactly as it is
+ * saved, and printing it writes nothing back.
  */
 
 /** A recipe flattened into the pieces the printed page needs. */
@@ -23,8 +22,6 @@ export type SharedRecipe = {
   /** Whoever uploaded it, named as the recipe screen names them. */
   author: string;
   categories: string[];
-  /** Deep link back into the app, for the family members who have an account. */
-  url: string;
 };
 
 export type RecipeLine = {
@@ -96,8 +93,8 @@ export function hasNutrition(
  * dropped, and the name is kept short enough to survive a download folder on a
  * phone. Hebrew itself is fine — Android, iOS and Windows all take it.
  *
- * This is also the name the recipient sees on the attachment, which is why it
- * is the recipe's own name and not something generated.
+ * It is the recipe's own name rather than something generated, because that is
+ * what the reader will look for in a downloads folder.
  */
 export function recipeFileName(title: string, extension: string): string {
   const clean = title

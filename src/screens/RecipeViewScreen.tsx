@@ -5,8 +5,6 @@ import {
   FileDown,
   Loader2,
   Pencil,
-  Send,
-  Share2,
   ShoppingCart,
   Star,
   Trash2,
@@ -69,22 +67,16 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [shopping, setShopping] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  /** The drawn page, held only between the tap that made it and the tap that sends it. */
-  const [ready, setReady] = useState<File | null>(null);
-  /** Set when the file could not be shared but a link still can be. */
-  const [linkOffered, setLinkOffered] = useState(false);
 
   const recipe = recipes.find((r) => r.id === id);
 
   /*
-   * The recipe as it leaves the app. Sharing it and printing it are the same
-   * recipe read out twice, so both are given one description of it rather than
-   * each reaching into the row and the category list for itself.
+   * The recipe as the printed page needs it: the row and the category list
+   * gathered into one description, so the drawing code has nothing to look up
+   * for itself.
    */
   const shared = useMemo<SharedRecipe | null>(() => {
     if (!recipe) return null;
@@ -99,10 +91,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
       categories: categories
         .filter((category) => recipe.categoryIds.includes(category.id))
         .map((category) => category.name),
-      // The link is worth carrying for the family, who have accounts and land
-      // straight on this screen. Everyone else still gets the whole recipe in
-      // the message above it.
-      url: `${window.location.origin}${window.location.pathname}#/recipe/${recipe.id}`,
     };
   }, [recipe, categories]);
 
@@ -142,7 +130,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
     if (!shared) return;
     setDownloading(true);
     setError(null);
-    setNotice(null);
     try {
       saveFile(await recipeToPdf(shared), recipeFileName(shared.title, "pdf"));
     } catch (e) {
@@ -150,112 +137,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
     } finally {
       setDownloading(false);
     }
-  }
-
-  /*
-   * The recipe as a file, handed to the phone — in two taps rather than one.
-   *
-   * A `mailto:` or a wa.me link can carry text and nothing else, so the PDF
-   * goes out through the device's own share sheet, where WhatsApp, mail, Drive
-   * and everything else the phone knows about are already listed.
-   *
-   * The catch is that a phone will only open that sheet while it is still
-   * handling a tap, and drawing the page takes longer than a tap lasts.
-   * Anything that tries to do both at once loses the race, whether the page is
-   * drawn on the spot or fetched from something kept ready in advance — and a
-   * page kept ready is a page held in memory after the reader has moved on.
-   *
-   * So the two are separated. The first tap draws the page and says it is
-   * ready; the second sends it, with nothing awaited in between for the phone
-   * to object to. The file is held only between those two taps.
-   */
-  async function preparePdf() {
-    if (!shared) return;
-    setSharing(true);
-    setError(null);
-    setNotice(null);
-    setReady(null);
-    setLinkOffered(false);
-
-    try {
-      const name = recipeFileName(shared.title, "pdf");
-      const file = new File([await recipeToPdf(shared)], name, { type: "application/pdf" });
-
-      if (!navigator.canShare?.({ files: [file] })) {
-        /*
-         * This browser will not carry a file. Not every one can: attaching
-         * files is a later addition to sharing than sending a line of text,
-         * and some phones and most desktops still only do the latter.
-         *
-         * The file is handed over anyway, since it is what was asked for and
-         * it can be attached by hand. But the chooser is the other half of
-         * what sharing means, so it is offered too — carrying a link rather
-         * than the document, which is all this browser will take.
-         */
-        saveFile(file, name);
-        setLinkOffered(canShareLink());
-        setNotice(
-          canShareLink()
-            ? "הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה, או לשתף קישור אליו."
-            : "הדפדפן הזה אינו יודע לשתף, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.",
-        );
-        return;
-      }
-
-      setReady(file);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
-    } finally {
-      setSharing(false);
-    }
-  }
-
-  /** Whether this browser will open a chooser for a plain link at all. */
-  function canShareLink(): boolean {
-    return typeof navigator.share === "function";
-  }
-
-  /**
-   * The chooser, carrying a link instead of the document — the fallback for a
-   * browser that shares but will not attach. Not `async`, like the one below,
-   * because the tap has to still be in hand when the sheet opens.
-   */
-  function shareLink() {
-    if (!shared) return;
-    setLinkOffered(false);
-    navigator
-      .share({ title: shared.title, text: shared.title, url: shared.url })
-      .catch((e: unknown) => {
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        setError("שיתוף הקישור נכשל");
-      });
-  }
-
-  /**
-   * Deliberately not `async`, and with no `await` before `share`. The tap that
-   * runs this is the thing the phone checks for, and waiting on anything at all
-   * here — even a promise that has already settled — is what spends it.
-   */
-  function sendPdf() {
-    const file = ready;
-    if (!file) return;
-    setReady(null);
-
-    navigator.share({ files: [file], title: file.name }).catch((e: unknown) => {
-      // Closing the sheet without choosing anything is a decision, not a
-      // failure, and the phone reports it as one.
-      if (e instanceof DOMException && e.name === "AbortError") return;
-
-      // Anything else and the file still exists, so it goes to the device
-      // rather than the reader getting the browser's own English refusal.
-      saveFile(file, file.name);
-      setLinkOffered(canShareLink());
-      setNotice(
-        canShareLink()
-          ? "השיתוף של הקובץ נדחה, אז המתכון ירד — אפשר לצרף אותו להודעה, או לשתף קישור אליו."
-          : "השיתוף לא נפתח, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.",
-      );
-    });
   }
 
   async function remove() {
@@ -277,9 +158,9 @@ export function RecipeViewScreen({ id }: { id: string }) {
         title={recipe.title}
         actions={
           /*
-            Six things can be done to a recipe from here, and on a phone six
-            round buttons at the usual spacing would leave the title no room at
-            all. They are tightened into one group instead — the gaps closed up
+            Five things can be done to a recipe from here, and on a phone that
+            many round buttons at the usual spacing would leave the title no
+            room at all. They are tightened into one group instead — the gaps closed up
             and each button a little smaller on a narrow screen, back to full
             size as soon as there is width for it.
           */
@@ -301,17 +182,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
               onClick={() => setShopping(true)}
             >
               <ShoppingCart />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={ready ? "שליחת המתכון" : "שיתוף המתכון כקובץ PDF"}
-              disabled={sharing}
-              onClick={ready ? sendPdf : () => void preparePdf()}
-              className={cn(ready && "bg-primary/15 text-primary")}
-            >
-              {sharing ? <Loader2 className="animate-spin" /> : ready ? <Send /> : <Share2 />}
             </Button>
 
             <Button
@@ -350,40 +220,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
       <main className="mx-auto w-full max-w-2xl space-y-8 px-4 py-8 sm:px-6">
         {error && <Notice kind="error">{error}</Notice>}
-        {notice && (
-          <Notice>
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span>{notice}</span>
-              {linkOffered && (
-                <Button size="sm" variant="outline" onClick={shareLink}>
-                  <Share2 />
-                  שיתוף קישור
-                </Button>
-              )}
-            </span>
-          </Notice>
-        )}
-
-        {/*
-          The second tap. It has to be a tap of its own — the phone opens its
-          share sheet only while it is handling one — so the page being ready
-          is said out loud rather than assumed.
-        */}
-        {ready && (
-          <Notice kind="success">
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <span>המתכון מוכן לשליחה.</span>
-              <Button size="sm" onClick={sendPdf}>
-                <Send />
-                שליחה
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setReady(null)}>
-                ביטול
-              </Button>
-            </span>
-          </Notice>
-        )}
-
         {recipe.image_url ? (
           <img
             src={recipe.image_url}
