@@ -92,8 +92,17 @@ export function ShareRecipeDialog({
   function send() {
     if (!file) return;
     setError(null);
-    shareFile(file, file.name).then(onClose, () => {
-      setError("שיתוף המתכון נכשל");
+    shareFile(file, file.name).then(onClose, (e: unknown) => {
+      /*
+       * The browser's own words, not ours. A share can be refused for several
+       * unrelated reasons — the gesture went stale, the browser says it
+       * carries files and then does not, the chosen app turned the document
+       * down — and they are indistinguishable from the outside. Swallowing
+       * the reason into one Hebrew sentence is what made the last attempt at
+       * this feature impossible to diagnose from a phone.
+       */
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      setError(`שיתוף המתכון נכשל — ${detail}`);
     });
   }
 
