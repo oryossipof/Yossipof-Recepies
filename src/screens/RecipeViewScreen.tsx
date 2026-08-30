@@ -76,6 +76,8 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   /** The drawn page, held only between the tap that made it and the tap that sends it. */
   const [ready, setReady] = useState<File | null>(null);
+  /** Set when the file could not be shared but a link still can be. */
+  const [linkOffered, setLinkOffered] = useState(false);
 
   const recipe = recipes.find((r) => r.id === id);
 
@@ -173,16 +175,30 @@ export function RecipeViewScreen({ id }: { id: string }) {
     setError(null);
     setNotice(null);
     setReady(null);
+    setLinkOffered(false);
 
     try {
       const name = recipeFileName(shared.title, "pdf");
       const file = new File([await recipeToPdf(shared)], name, { type: "application/pdf" });
 
       if (!navigator.canShare?.({ files: [file] })) {
-        // A desktop browser without file sharing. The file itself is still
-        // what was wanted, so hand it over and say where it went.
+        /*
+         * This browser will not carry a file. Not every one can: attaching
+         * files is a later addition to sharing than sending a line of text,
+         * and some phones and most desktops still only do the latter.
+         *
+         * The file is handed over anyway, since it is what was asked for and
+         * it can be attached by hand. But the chooser is the other half of
+         * what sharing means, so it is offered too — carrying a link rather
+         * than the document, which is all this browser will take.
+         */
         saveFile(file, name);
-        setNotice("הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+        setLinkOffered(canShareLink());
+        setNotice(
+          canShareLink()
+            ? "הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה, או לשתף קישור אליו."
+            : "הדפדפן הזה אינו יודע לשתף, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.",
+        );
         return;
       }
 
@@ -192,6 +208,27 @@ export function RecipeViewScreen({ id }: { id: string }) {
     } finally {
       setSharing(false);
     }
+  }
+
+  /** Whether this browser will open a chooser for a plain link at all. */
+  function canShareLink(): boolean {
+    return typeof navigator.share === "function";
+  }
+
+  /**
+   * The chooser, carrying a link instead of the document — the fallback for a
+   * browser that shares but will not attach. Not `async`, like the one below,
+   * because the tap has to still be in hand when the sheet opens.
+   */
+  function shareLink() {
+    if (!shared) return;
+    setLinkOffered(false);
+    navigator
+      .share({ title: shared.title, text: shared.title, url: shared.url })
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError("שיתוף הקישור נכשל");
+      });
   }
 
   /**
@@ -212,7 +249,12 @@ export function RecipeViewScreen({ id }: { id: string }) {
       // Anything else and the file still exists, so it goes to the device
       // rather than the reader getting the browser's own English refusal.
       saveFile(file, file.name);
-      setNotice("השיתוף לא נפתח, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+      setLinkOffered(canShareLink());
+      setNotice(
+        canShareLink()
+          ? "השיתוף של הקובץ נדחה, אז המתכון ירד — אפשר לצרף אותו להודעה, או לשתף קישור אליו."
+          : "השיתוף לא נפתח, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.",
+      );
     });
   }
 
@@ -308,7 +350,19 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
       <main className="mx-auto w-full max-w-2xl space-y-8 px-4 py-8 sm:px-6">
         {error && <Notice kind="error">{error}</Notice>}
-        {notice && <Notice>{notice}</Notice>}
+        {notice && (
+          <Notice>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span>{notice}</span>
+              {linkOffered && (
+                <Button size="sm" variant="outline" onClick={shareLink}>
+                  <Share2 />
+                  שיתוף קישור
+                </Button>
+              )}
+            </span>
+          </Notice>
+        )}
 
         {/*
           The second tap. It has to be a tap of its own — the phone opens its
