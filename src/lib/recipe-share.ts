@@ -1,22 +1,18 @@
 import type { Nutrition, NutritionValues } from "./nutrition";
-import { formatGrams, isEmptyNutrition, perPortion } from "./nutrition";
+import { isEmptyNutrition, perPortion } from "./nutrition";
 import { htmlToLines, htmlToText, isBlankHtml, isHeadingLine } from "./sanitize-html";
 
 /*
  * A recipe on its way out of the app.
  *
- * Sharing and the PDF are the same job done twice — the recipe read from top to
- * bottom, once as a message and once as a page — so both start here, from one
- * description of what a recipe is made of. What the screens hold is stored
- * HTML; what leaves the app is lines of text, and this is where that turns
- * over.
- *
- * Nothing here reaches the network or the database. A shared recipe is the
- * recipe exactly as it is saved: no copy is kept, and nothing about the sharing
- * is written back.
+ * What leaves is always the PDF — shared to whichever app the phone offers, or
+ * downloaded — so this file describes the recipe once, in the pieces the page
+ * is drawn from, and recipe-pdf.ts draws it. Nothing here reaches the network
+ * or the database: a shared recipe is the recipe exactly as it is saved, and
+ * nothing about the sharing is written back.
  */
 
-/** A recipe flattened into the pieces the message and the PDF both need. */
+/** A recipe flattened into the pieces the printed page needs. */
 export type SharedRecipe = {
   title: string;
   ingredientsHtml: string;
@@ -88,77 +84,20 @@ export function nutritionRows(nutrition: Nutrition): NutritionRow[] {
   ];
 }
 
-/** True when the recipe carries figures worth printing or sending. */
+/** True when the recipe carries figures worth printing. */
 export function hasNutrition(
   recipe: SharedRecipe,
 ): recipe is SharedRecipe & { nutrition: Nutrition } {
   return !isEmptyNutrition(recipe.nutrition);
 }
 
-function nutritionLine({ label, values }: NutritionRow): string {
-  return (
-    `${label}: ${values.calories} קלוריות, ` +
-    `${formatGrams(values.protein)} ג׳ חלבון, ${formatGrams(values.fat)} ג׳ שומן`
-  );
-}
-
-/**
- * The recipe as a message — what goes into WhatsApp or into the body of a mail.
- *
- * Plain text and nothing else: a recipe that arrives as a wall of HTML tags in
- * someone's mail client is not a recipe anyone will cook from. The emoji that
- * anchor the sections on screen come along, because they are what makes the
- * message skimmable on a phone.
- */
-export function recipeAsText(recipe: SharedRecipe): string {
-  const blocks: string[] = [`🍲 ${recipe.title}`];
-
-  const subtitle = [recipe.author && `מאת ${recipe.author}`, recipe.categories.join(" · ")]
-    .filter(Boolean)
-    .join(" · ");
-  if (subtitle) blocks.push(subtitle);
-
-  for (const section of recipeSections(recipe)) {
-    const lines = section.lines.map((line) =>
-      // A heading inside a list is not one of the list's items, so it does not
-      // take a bullet — the same distinction the shopping dialog draws.
-      section.bulleted && !line.heading ? `• ${line.text}` : line.text,
-    );
-    blocks.push([`${section.emoji} ${section.title}`, ...lines].join("\n"));
-  }
-
-  if (hasNutrition(recipe)) {
-    blocks.push(
-      ["🔥 ערכים תזונתיים (הערכה)", ...nutritionRows(recipe.nutrition).map(nutritionLine)].join(
-        "\n",
-      ),
-    );
-  }
-
-  blocks.push(`נשלח מאפליקציית המתכונים של המשפחה\n${recipe.url}`);
-
-  return blocks.join("\n\n");
-}
-
-/**
- * WhatsApp with a message already written and no recipient chosen: wa.me hands
- * the text to whichever WhatsApp the device has — the app on a phone, the web
- * client on a computer — and lets the sender pick the chat there. Both the
- * Android phones and the iPhones in the family land in the same place.
- */
-export function whatsappLink(text: string): string {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
-}
-
-/** A new mail with the recipe in it, in whatever the device calls its mail app. */
-export function mailtoLink(subject: string, body: string): string {
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
 /**
  * A file name for the recipe. Everything a file system anywhere objects to is
  * dropped, and the name is kept short enough to survive a download folder on a
  * phone. Hebrew itself is fine — Android, iOS and Windows all take it.
+ *
+ * This is also the name the recipient sees on the attachment, which is why it
+ * is the recipe's own name and not something generated.
  */
 export function recipeFileName(title: string, extension: string): string {
   const clean = title

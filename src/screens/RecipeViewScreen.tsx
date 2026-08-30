@@ -26,7 +26,6 @@ import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CookedDifferentlyDialog } from "@/components/CookedDifferentlyDialog";
 import { SendToShoppingDialog } from "@/components/SendToShoppingDialog";
-import { ShareRecipeDialog } from "@/components/ShareRecipeDialog";
 import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
@@ -73,6 +72,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const recipe = recipes.find((r) => r.id === id);
 
@@ -137,12 +137,51 @@ export function RecipeViewScreen({ id }: { id: string }) {
     if (!shared) return;
     setDownloading(true);
     setError(null);
+    setNotice(null);
     try {
       saveFile(await recipeToPdf(shared), recipeFileName(shared.title, "pdf"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
     } finally {
       setDownloading(false);
+    }
+  }
+
+  /*
+   * The recipe as a file, handed to the phone.
+   *
+   * A `mailto:` or a wa.me link can carry text and nothing else — neither can
+   * attach a file — so the PDF goes out through the device's own share sheet
+   * instead, where WhatsApp, mail, Drive and everything else the phone knows
+   * about are already listed. What arrives at the other end is the recipe as a
+   * document, not a wall of text in a chat bubble.
+   */
+  async function sharePdf() {
+    if (!shared) return;
+    setSharing(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const name = recipeFileName(shared.title, "pdf");
+      const file = new File([await recipeToPdf(shared)], name, { type: "application/pdf" });
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: shared.title });
+        return;
+      }
+
+      // A desktop browser without file sharing. The file itself is still what
+      // was wanted, so hand it over and say where it went.
+      saveFile(file, name);
+      setNotice("הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+    } catch (e) {
+      // Closing the share sheet without choosing anything is a decision, not a
+      // failure, and the phone reports it as one.
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "שיתוף המתכון נכשל");
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -194,10 +233,11 @@ export function RecipeViewScreen({ id }: { id: string }) {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="שיתוף המתכון"
-              onClick={() => setSharing(true)}
+              aria-label="שיתוף המתכון כקובץ PDF"
+              disabled={sharing}
+              onClick={() => void sharePdf()}
             >
-              <Share2 />
+              {sharing ? <Loader2 className="animate-spin" /> : <Share2 />}
             </Button>
 
             <Button
@@ -236,6 +276,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
       <main className="mx-auto w-full max-w-2xl space-y-8 px-4 py-8 sm:px-6">
         {error && <Notice kind="error">{error}</Notice>}
+        {notice && <Notice>{notice}</Notice>}
 
         {recipe.image_url ? (
           <img
@@ -365,10 +406,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
         onClose={() => setShopping(false)}
         ingredientsHtml={recipe.ingredients_html}
       />
-
-      {shared && (
-        <ShareRecipeDialog open={sharing} onClose={() => setSharing(false)} recipe={shared} />
-      )}
 
       {recipe.nutrition && (
         <CookedDifferentlyDialog

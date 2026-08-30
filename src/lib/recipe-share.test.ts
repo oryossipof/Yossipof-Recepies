@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { buildPdf } from "./pdf";
 import {
-  mailtoLink,
-  recipeAsText,
+  hasNutrition,
+  nutritionRows,
   recipeFileName,
   recipeSections,
-  whatsappLink,
   type SharedRecipe,
 } from "./recipe-share";
 
@@ -43,42 +42,33 @@ describe("recipeSections", () => {
       { text: "100 גרם חמאה", heading: false },
     ]);
   });
-});
 
-describe("recipeAsText", () => {
-  const text = recipeAsText(recipe);
-
-  it("bullets the ingredients but not the heading above them", () => {
-    expect(text).toContain("• 2 כוסות קמח");
-    expect(text).toContain("\nלבצק:\n");
-    expect(text).not.toContain("• לבצק:");
-  });
-
-  it("carries no markup out of the app", () => {
-    expect(text).not.toMatch(/<[a-z/]/i);
-  });
-
-  it("writes the figures out per division", () => {
-    expect(text).toContain("כל הכמות: 2400 קלוריות, 45.5 ג׳ חלבון, 90 ג׳ שומן");
-    expect(text).toContain("1 מתוך 8 פרוסות: 300 קלוריות");
-  });
-
-  it("ends with a way back to the recipe itself", () => {
-    expect(text.trimEnd().endsWith(recipe.url)).toBe(true);
+  it("carries no markup through to the page", () => {
+    for (const section of recipeSections(recipe)) {
+      for (const line of section.lines) expect(line.text).not.toMatch(/<[a-z/]/i);
+    }
   });
 });
 
-describe("the links a message is handed to", () => {
-  it("escapes the line breaks that separate the sections", () => {
-    const link = whatsappLink("שורה\nשנייה");
-    expect(link.startsWith("https://wa.me/?text=")).toBe(true);
-    expect(link).toContain("%0A");
+describe("nutritionRows", () => {
+  it("puts the whole dish first and divides the rest", () => {
+    expect(hasNutrition(recipe)).toBe(true);
+    expect(nutritionRows(recipe.nutrition!)).toEqual([
+      { label: "כל הכמות", values: { calories: 2400, protein: 45.5, fat: 90 }, total: true },
+      {
+        label: "1 מתוך 8 פרוסות",
+        values: { calories: 300, protein: 5.7, fat: 11.3 },
+        total: false,
+      },
+    ]);
   });
 
-  it("puts the recipe's name in the subject", () => {
-    expect(mailtoLink("עוגת שוקולד", "גוף")).toBe(
-      `mailto:?subject=${encodeURIComponent("עוגת שוקולד")}&body=${encodeURIComponent("גוף")}`,
-    );
+  it("says there is nothing to print when the figures are all zero", () => {
+    const empty = {
+      ...recipe,
+      nutrition: { total_label: "כל הכמות", total: { calories: 0, protein: 0, fat: 0 }, divisions: [] },
+    };
+    expect(hasNutrition(empty)).toBe(false);
   });
 });
 
