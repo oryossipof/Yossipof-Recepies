@@ -52,7 +52,13 @@ describe("canShareFiles", () => {
     expect(canShareFiles()).toBe(true);
 
     // Asked about a file, and about a PDF specifically.
-    expect(canShare.mock.calls[0][0].files?.[0].type).toBe("application/pdf");
+    const asked = canShare.mock.calls[0][0].files?.[0];
+    expect(asked?.type).toBe("application/pdf");
+
+    // And about one with bytes in it. An empty file is something no browser is
+    // ever asked to share for real, so a browser refusing one would hide the
+    // share button on that platform silently — the worst way to lose a feature.
+    expect(asked?.size).toBeGreaterThan(0);
   });
 });
 

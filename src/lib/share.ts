@@ -15,18 +15,32 @@
  * the click handler, as the first thing it does.
  */
 
-/** A stand-in document, for asking whether files can be carried at all. */
+/**
+ * A stand-in document, for asking whether files can be carried at all.
+ *
+ * It has bytes in it, and that is the point. The obvious way to write this is
+ * `new File([], …)`, and an empty file is a thing no browser is ever asked to
+ * share in earnest — so a browser is entitled to refuse one, and if it did,
+ * the share button would vanish on that platform with no error and no trace.
+ * Losing a feature silently on the iPhones in the family is a worse failure
+ * than any refusal we could show, so the question is asked about something
+ * that at least looks like a document.
+ */
 function probeFile(): File {
-  return new File([], "recipe.pdf", { type: "application/pdf" });
+  return new File(["%PDF-1.4\n"], "recipe.pdf", { type: "application/pdf" });
 }
 
 /**
  * True when this browser will carry a file, not merely text.
  *
- * Asked with a nought-byte stand-in, because the question has to be answered
- * before there is a real document — it decides whether a share button is
- * offered at all. The `try` is not decoration: Safari has answered this call
- * by throwing rather than returning false.
+ * Asked with a stand-in, because the question has to be answered before there
+ * is a real document — it decides whether a share button is offered at all,
+ * and drawing an A4 page to find out would be absurd. The `try` is not
+ * decoration: Safari has answered this call by throwing rather than returning
+ * false.
+ *
+ * The stand-in is only ever an opening question. `canCarry` asks again about
+ * the true document once it exists, which is what actually guards the send.
  */
 export function canShareFiles(): boolean {
   try {
