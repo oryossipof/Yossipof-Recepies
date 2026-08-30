@@ -115,6 +115,28 @@ export function RecipeViewScreen({ id }: { id: string }) {
    */
   const prepared = useRef<Promise<Blob> | null>(null);
 
+  /*
+   * Everything the printed page is drawn from, and nothing else.
+   *
+   * Saving an edit reloads the whole list, so the recipe arrives as a new
+   * object and the page has to be drawn again — which is the point. But
+   * starring a recipe replaces that object too, without changing a word of
+   * what gets printed, and redrawing the page for a favourite would burn a
+   * canvas render on a phone for nothing.
+   */
+  const pdfKey = shared
+    ? JSON.stringify([
+        shared.title,
+        shared.ingredientsHtml,
+        shared.instructionsHtml,
+        shared.notesHtml,
+        shared.imageUrl,
+        shared.author,
+        shared.categories,
+        shared.nutrition,
+      ])
+    : null;
+
   useEffect(() => {
     prepared.current = null;
     if (!shared) return;
@@ -126,7 +148,10 @@ export function RecipeViewScreen({ id }: { id: string }) {
     }, 900);
 
     return () => window.clearTimeout(timer);
-  }, [shared]);
+    // `shared` is read through the closure of the render that changed the key,
+    // so it always describes the recipe the key was taken from.
+
+  }, [pdfKey]);
 
   /**
    * Starts a build and remembers it. A build that fails is forgotten rather
