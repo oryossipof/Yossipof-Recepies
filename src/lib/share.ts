@@ -70,3 +70,29 @@ export function isDismissal(e: unknown): boolean {
 export function refusalDetail(e: unknown): string {
   return e instanceof Error ? `${e.name}: ${e.message}` : String(e);
 }
+
+/**
+ * Which browser this is, and whether it is running as an installed app.
+ *
+ * A refused share says something about the browser rather than about the
+ * recipe, and neither the browser's name nor its mode is visible in a
+ * photograph of the notice. Both matter: Samsung Internet accepts a file and
+ * then declines to open the sheet, and an installed app is a different
+ * context from the same page in a tab, sometimes with a different answer.
+ */
+export function browserContext(): string {
+  const ua = navigator.userAgent;
+  const name =
+    /SamsungBrowser\/([\d.]+)/.exec(ua)?.[0] ??
+    /EdgA?\/([\d.]+)/.exec(ua)?.[0] ??
+    /OPR\/([\d.]+)/.exec(ua)?.[0] ??
+    /FxiOS|Firefox\/([\d.]+)/.exec(ua)?.[0] ??
+    /Chrome\/([\d.]+)/.exec(ua)?.[0] ??
+    /Version\/([\d.]+).*Safari/.exec(ua)?.[0] ??
+    "דפדפן לא מזוהה";
+
+  const installed =
+    typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches;
+
+  return `${name} · ${installed ? "אפליקציה מותקנת" : "לשונית"}`;
+}

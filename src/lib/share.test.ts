@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { canCarry, canShareFiles, isDismissal, refusalDetail } from "./share";
+import { browserContext, canCarry, canShareFiles, isDismissal, refusalDetail } from "./share";
 
 /**
  * jsdom ships no Web Share API at all, so every case here installs the exact
@@ -111,5 +111,37 @@ describe("refusalDetail", () => {
 
   it("copes with something that is not an error at all", () => {
     expect(refusalDetail("odd")).toBe("odd");
+  });
+});
+
+describe("browserContext", () => {
+  const CHROME_ANDROID =
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+  const SAMSUNG =
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36";
+
+  function screen(ua: string, standalone: boolean): void {
+    browser({ userAgent: ua });
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: standalone && q.includes("standalone"),
+    }));
+  }
+
+  it("names Samsung Internet rather than the Chrome it reports underneath", () => {
+    // Samsung Internet carries a Chrome token too, so order of matching is the
+    // whole point: it is the browser that accepts a file and then refuses the
+    // sheet, and calling it "Chrome" would send us looking in the wrong place.
+    screen(SAMSUNG, false);
+    expect(browserContext()).toBe("SamsungBrowser/23.0 · לשונית");
+  });
+
+  it("separates an installed app from the same page in a tab", () => {
+    screen(CHROME_ANDROID, true);
+    expect(browserContext()).toBe("Chrome/131.0.0.0 · אפליקציה מותקנת");
+  });
+
+  it("does not pretend to recognise an unknown browser", () => {
+    screen("SomethingElse/1.0", false);
+    expect(browserContext()).toBe("דפדפן לא מזוהה · לשונית");
   });
 });

@@ -3,7 +3,7 @@ import { FileText, Loader2, Share2 } from "lucide-react";
 
 import { recipeToPdf } from "@/lib/recipe-pdf";
 import { recipeFileName, type SharedRecipe } from "@/lib/recipe-share";
-import { canCarry, isDismissal, refusalDetail } from "@/lib/share";
+import { browserContext, canCarry, isDismissal, refusalDetail } from "@/lib/share";
 import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,30 +97,44 @@ export function ShareRecipeDialog({
   }, [open]);
 
   /*
-   * navigator.share is the first thing this handler does, and that is the
-   * whole design of it. The browser opens the sheet only while the tap that
-   * asked for it is still live, and this phone answered "NotAllowedError:
-   * Permission denied" when the call sat behind a helper function and a state
-   * update — neither of which awaits anything, and both of which it minded
-   * anyway. So there is no helper, no setState, and nothing but a property
-   * read ahead of the call. Everything that could be asked in advance was
-   * asked while the page was being drawn.
+   * The share is fired from a listener bound straight to the button, rather
+   * than from an onClick prop.
    *
-   * Anything added above this line risks the sheet, however harmless it looks.
+   * React does not dispatch a click on the element itself: it listens at the
+   * root of the app and replays the event through its own system, so by the
+   * time a handler runs, the browser is several frames and one synthetic
+   * dispatch away from the tap. Every specification says the activation
+   * survives that, and this phone answered "NotAllowedError: Permission
+   * denied" anyway — through a helper, then without one, then with nothing
+   * whatsoever ahead of the call. A listener on the node is the last
+   * remaining difference between our tap and the browser's idea of one.
+   *
+   * Nothing may be added before the navigator.share line. Not a state update,
+   * not a check, not a log.
    */
-  function send() {
-    if (!file) return;
-    navigator.share({ files: [file] }).then(onClose, (e: unknown) => {
-      // Backing out of the sheet is a decision, not a failure.
-      if (isDismissal(e)) {
-        onClose();
-        return;
-      }
-      // The browser's own words: the refusals are indistinguishable without
-      // them, and guessing between them is what killed this feature before.
-      setError(`שיתוף המתכון נכשל — ${refusalDetail(e)}`);
-    });
-  }
+  const sendButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const button = sendButton.current;
+    if (!button || !file) return;
+
+    function share() {
+      navigator.share({ files: [file!] }).then(onClose, (e: unknown) => {
+        // Backing out of the sheet is a decision, not a failure.
+        if (isDismissal(e)) {
+          onClose();
+          return;
+        }
+        // The browser's own words, and enough about the browser to act on
+        // them: a refusal here means something about this browser in this
+        // mode, and neither is visible from a screenshot of the notice.
+        setError(`שיתוף המתכון נכשל — ${refusalDetail(e)} · ${browserContext()}`);
+      });
+    }
+
+    button.addEventListener("click", share);
+    return () => button.removeEventListener("click", share);
+  }, [file, onClose]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -155,7 +169,8 @@ export function ShareRecipeDialog({
           <Button variant="outline" onClick={onClose}>
             ביטול
           </Button>
-          <Button onClick={send} disabled={!file}>
+          {/* No onClick: the listener above is bound to this node directly. */}
+          <Button ref={sendButton} disabled={!file}>
             <Share2 />
             שליחה
           </Button>
