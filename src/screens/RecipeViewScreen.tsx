@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChefHat,
   CookingPot,
@@ -101,6 +101,46 @@ export function RecipeViewScreen({ id }: { id: string }) {
     };
   }, [recipe, categories]);
 
+  /*
+   * The finished PDF, built before anyone asks for it.
+   *
+   * `navigator.share` may only be called while the tap that asked for it still
+   * counts as a gesture — about five seconds in Chrome — and building a page
+   * with a photograph on it can take longer than that on mobile data. Waiting
+   * for the build inside the tap is what makes the share fail with "permission
+   * denied": by the time the file is ready, the tap no longer counts.
+   *
+   * So the page is drawn a moment after the recipe appears, while the reader
+   * is still reading, and the share button has nothing left to wait for.
+   */
+  const prepared = useRef<Promise<Blob> | null>(null);
+
+  useEffect(() => {
+    prepared.current = null;
+    if (!shared) return;
+
+    // Not on the same tick as the first paint: drawing a page is real work,
+    // and the recipe should appear first.
+    const timer = window.setTimeout(() => {
+      if (!prepared.current) prepared.current = buildPdf(shared);
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [shared]);
+
+  /**
+   * Starts a build and remembers it. A build that fails is forgotten rather
+   * than remembered, so pressing the button again tries afresh instead of
+   * repeating the same failure.
+   */
+  function buildPdf(recipe: SharedRecipe): Promise<Blob> {
+    const pdf = recipeToPdf(recipe);
+    pdf.catch(() => {
+      if (prepared.current === pdf) prepared.current = null;
+    });
+    return pdf;
+  }
+
   if (loading) {
     return (
       <>
@@ -139,7 +179,8 @@ export function RecipeViewScreen({ id }: { id: string }) {
     setError(null);
     setNotice(null);
     try {
-      saveFile(await recipeToPdf(shared), recipeFileName(shared.title, "pdf"));
+      prepared.current ??= buildPdf(shared);
+      saveFile(await prepared.current, recipeFileName(shared.title, "pdf"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
     } finally {
@@ -163,22 +204,37 @@ export function RecipeViewScreen({ id }: { id: string }) {
     setNotice(null);
 
     try {
+      prepared.current ??= buildPdf(shared);
       const name = recipeFileName(shared.title, "pdf");
-      const file = new File([await recipeToPdf(shared)], name, { type: "application/pdf" });
+      const file = new File([await prepared.current], name, { type: "application/pdf" });
 
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: shared.title });
+      if (!navigator.canShare?.({ files: [file] })) {
+        // A desktop browser without file sharing. The file itself is still
+        // what was wanted, so hand it over and say where it went.
+        saveFile(file, name);
+        setNotice("הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
         return;
       }
 
-      // A desktop browser without file sharing. The file itself is still what
-      // was wanted, so hand it over and say where it went.
-      saveFile(file, name);
-      setNotice("הדפדפן הזה אינו יודע לשתף קבצים, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+      try {
+        await navigator.share({ files: [file], title: shared.title });
+      } catch (e) {
+        // Closing the share sheet without choosing anything is a decision, not
+        // a failure, and the phone reports it as one.
+        if (e instanceof DOMException && e.name === "AbortError") return;
+
+        // The tap stopped counting as a gesture before the sheet could open —
+        // the page was still being drawn. The file exists either way, so it
+        // goes to the device rather than the reader getting the browser's own
+        // English refusal.
+        if (e instanceof DOMException && e.name === "NotAllowedError") {
+          saveFile(file, name);
+          setNotice("חלון השיתוף לא נפתח בזמן, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+          return;
+        }
+        throw e;
+      }
     } catch (e) {
-      // Closing the share sheet without choosing anything is a decision, not a
-      // failure, and the phone reports it as one.
-      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "שיתוף המתכון נכשל");
     } finally {
       setSharing(false);
@@ -282,6 +338,15 @@ export function RecipeViewScreen({ id }: { id: string }) {
           <img
             src={recipe.image_url}
             alt={recipe.title}
+            /*
+              The PDF has to read this photograph back off a canvas, which it
+              may only do when the picture was fetched with CORS. Asking for it
+              here too means both loads share one cache entry — without this
+              the page is drawn from a second, full-size download of a
+              photograph already on screen, which on mobile data is most of the
+              wait. Storage serves these with `Access-Control-Allow-Origin`.
+            */
+            crossOrigin="anonymous"
             className="max-h-96 w-full rounded-2xl object-cover"
           />
         ) : (
