@@ -141,13 +141,45 @@ export function RecipeViewScreen({ id }: { id: string }) {
     prepared.current = null;
     if (!shared) return;
 
+    let timer = 0;
+
     // Not on the same tick as the first paint: drawing a page is real work,
     // and the recipe should appear first.
-    const timer = window.setTimeout(() => {
-      if (!prepared.current) prepared.current = buildPdf(shared);
-    }, 900);
+    function draw() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (!prepared.current) prepared.current = buildPdf(shared as SharedRecipe);
+      }, 900);
+    }
 
-    return () => window.clearTimeout(timer);
+    /*
+     * Nothing drawn outlives the screen it was drawn for. Walking away from the
+     * recipe drops the page, and so does the app being closed or pushed into
+     * the background — `pagehide` and a hidden `visibilitychange` are the two
+     * signals a phone can be trusted to send, where `unload` cannot.
+     *
+     * Coming back draws it again. Rebuilding costs a moment; keeping someone's
+     * recipe in memory after they have left it is not ours to decide.
+     */
+    function drop() {
+      window.clearTimeout(timer);
+      prepared.current = null;
+    }
+
+    function onVisibility() {
+      if (document.visibilityState === "hidden") drop();
+      else draw();
+    }
+
+    draw();
+    window.addEventListener("pagehide", drop);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      drop();
+      window.removeEventListener("pagehide", drop);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // `shared` is read through the closure of the render that changed the key,
     // so it always describes the recipe the key was taken from.
 
