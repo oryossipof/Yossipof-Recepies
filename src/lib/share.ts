@@ -44,14 +44,30 @@ export function canShareFiles(): boolean {
  * awaited between the tap and this call. Building the file is the caller's
  * job, and has to have happened already.
  *
+ * The payload is the file and nothing else. A `title` alongside `files` is
+ * legal, and several Android share targets nevertheless turn the whole
+ * request down when they see one — the file's own name is what the receiving
+ * app shows anyway, so the title bought nothing and cost the share.
+ *
+ * The real file is offered to `canShare` first, rather than the empty stand-in
+ * the button's own check uses. A browser can wave through a nought-byte PDF
+ * and still refuse the actual document, and being told that here — before the
+ * sheet — is the difference between a reason and a mystery.
+ *
  * Backing out of the sheet resolves rather than rejects. The browser reports
  * a dismissal as an AbortError, but choosing not to send is a decision, and
  * answering it with a red error would be telling the user off for changing
  * their mind.
  */
-export async function shareFile(file: File, title: string): Promise<void> {
+export async function shareFile(file: File): Promise<void> {
+  const payload = { files: [file] };
+
+  if (typeof navigator.canShare === "function" && !navigator.canShare(payload)) {
+    throw new Error("הדפדפן הזה אינו מוכן לשאת את הקובץ");
+  }
+
   try {
-    await navigator.share({ files: [file], title });
+    await navigator.share(payload);
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
     throw e;

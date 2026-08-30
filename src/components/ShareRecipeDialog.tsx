@@ -92,7 +92,7 @@ export function ShareRecipeDialog({
   function send() {
     if (!file) return;
     setError(null);
-    shareFile(file, file.name).then(onClose, (e: unknown) => {
+    shareFile(file).then(onClose, (e: unknown) => {
       /*
        * The browser's own words, not ours. A share can be refused for several
        * unrelated reasons — the gesture went stale, the browser says it

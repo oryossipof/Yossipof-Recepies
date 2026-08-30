@@ -59,28 +59,58 @@ describe("canShareFiles", () => {
 describe("shareFile", () => {
   const file = new File(["x"], "עוגה.pdf", { type: "application/pdf" });
 
-  it("hands the file and the title to the share sheet", async () => {
+  it("hands over the file and nothing else", async () => {
     const share = vi.fn(() => Promise.resolve());
-    browser({ share });
+    browser({ share, canShare: () => true });
 
-    await shareFile(file, "עוגה.pdf");
+    await shareFile(file);
 
-    expect(share).toHaveBeenCalledWith({ files: [file], title: "עוגה.pdf" });
+    // No title: several Android share targets refuse the whole request when
+    // one rides along beside the file.
+    expect(share).toHaveBeenCalledWith({ files: [file] });
+  });
+
+  it("asks about the real file, not a stand-in", async () => {
+    const canShare = vi.fn((_data: ShareData) => true);
+    browser({ share: vi.fn(() => Promise.resolve()), canShare });
+
+    await shareFile(file);
+
+    expect(canShare.mock.calls[0][0].files?.[0]).toBe(file);
+  });
+
+  it("refuses before the sheet when the browser turns the file down", async () => {
+    const share = vi.fn(() => Promise.resolve());
+    browser({ share, canShare: () => false });
+
+    await expect(shareFile(file)).rejects.toThrow("אינו מוכן לשאת");
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it("still shares where canShare is missing altogether", async () => {
+    const share = vi.fn(() => Promise.resolve());
+    browser({ share, canShare: undefined });
+
+    await shareFile(file);
+
+    expect(share).toHaveBeenCalledWith({ files: [file] });
   });
 
   it("treats backing out of the sheet as done, not as a failure", async () => {
     browser({
+      canShare: () => true,
       share: () => Promise.reject(new DOMException("cancelled", "AbortError")),
     });
 
-    await expect(shareFile(file, "עוגה.pdf")).resolves.toBeUndefined();
+    await expect(shareFile(file)).resolves.toBeUndefined();
   });
 
   it("passes a real failure on", async () => {
     browser({
+      canShare: () => true,
       share: () => Promise.reject(new DOMException("denied", "NotAllowedError")),
     });
 
-    await expect(shareFile(file, "עוגה.pdf")).rejects.toThrow("denied");
+    await expect(shareFile(file)).rejects.toThrow("denied");
   });
 });
