@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ChefHat,
   CookingPot,
   FileDown,
   Loader2,
   Pencil,
+  Send,
   Share2,
   ShoppingCart,
   Star,
@@ -73,6 +74,8 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** The drawn page, held only between the tap that made it and the tap that sends it. */
+  const [ready, setReady] = useState<File | null>(null);
 
   const recipe = recipes.find((r) => r.id === id);
 
@@ -100,103 +103,6 @@ export function RecipeViewScreen({ id }: { id: string }) {
       url: `${window.location.origin}${window.location.pathname}#/recipe/${recipe.id}`,
     };
   }, [recipe, categories]);
-
-  /*
-   * The finished PDF, built before anyone asks for it.
-   *
-   * `navigator.share` may only be called while the tap that asked for it still
-   * counts as a gesture — about five seconds in Chrome — and building a page
-   * with a photograph on it can take longer than that on mobile data. Waiting
-   * for the build inside the tap is what makes the share fail with "permission
-   * denied": by the time the file is ready, the tap no longer counts.
-   *
-   * So the page is drawn a moment after the recipe appears, while the reader
-   * is still reading, and the share button has nothing left to wait for.
-   */
-  const prepared = useRef<Promise<Blob> | null>(null);
-
-  /*
-   * Everything the printed page is drawn from, and nothing else.
-   *
-   * Saving an edit reloads the whole list, so the recipe arrives as a new
-   * object and the page has to be drawn again — which is the point. But
-   * starring a recipe replaces that object too, without changing a word of
-   * what gets printed, and redrawing the page for a favourite would burn a
-   * canvas render on a phone for nothing.
-   */
-  const pdfKey = shared
-    ? JSON.stringify([
-        shared.title,
-        shared.ingredientsHtml,
-        shared.instructionsHtml,
-        shared.notesHtml,
-        shared.imageUrl,
-        shared.author,
-        shared.categories,
-        shared.nutrition,
-      ])
-    : null;
-
-  useEffect(() => {
-    prepared.current = null;
-    if (!shared) return;
-
-    let timer = 0;
-
-    // Not on the same tick as the first paint: drawing a page is real work,
-    // and the recipe should appear first.
-    function draw() {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (!prepared.current) prepared.current = buildPdf(shared as SharedRecipe);
-      }, 900);
-    }
-
-    /*
-     * Nothing drawn outlives the screen it was drawn for. Walking away from the
-     * recipe drops the page, and so does the app being closed or pushed into
-     * the background — `pagehide` and a hidden `visibilitychange` are the two
-     * signals a phone can be trusted to send, where `unload` cannot.
-     *
-     * Coming back draws it again. Rebuilding costs a moment; keeping someone's
-     * recipe in memory after they have left it is not ours to decide.
-     */
-    function drop() {
-      window.clearTimeout(timer);
-      prepared.current = null;
-    }
-
-    function onVisibility() {
-      if (document.visibilityState === "hidden") drop();
-      else draw();
-    }
-
-    draw();
-    window.addEventListener("pagehide", drop);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      drop();
-      window.removeEventListener("pagehide", drop);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-    // `shared` is read through the closure of the render that changed the key,
-    // so it always describes the recipe the key was taken from.
-
-  }, [pdfKey]);
-
-  /**
-   * Starts a build and remembers it. A build that fails is forgotten rather
-   * than remembered, so pressing the button again tries afresh instead of
-   * repeating the same failure.
-   */
-  function buildPdf(recipe: SharedRecipe): Promise<Blob> {
-    const pdf = recipeToPdf(recipe);
-    pdf.catch(() => {
-      if (prepared.current === pdf) prepared.current = null;
-    });
-    return pdf;
-  }
 
   if (loading) {
     return (
@@ -236,8 +142,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
     setError(null);
     setNotice(null);
     try {
-      prepared.current ??= buildPdf(shared);
-      saveFile(await prepared.current, recipeFileName(shared.title, "pdf"));
+      saveFile(await recipeToPdf(shared), recipeFileName(shared.title, "pdf"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
     } finally {
@@ -246,24 +151,32 @@ export function RecipeViewScreen({ id }: { id: string }) {
   }
 
   /*
-   * The recipe as a file, handed to the phone.
+   * The recipe as a file, handed to the phone — in two taps rather than one.
    *
-   * A `mailto:` or a wa.me link can carry text and nothing else — neither can
-   * attach a file — so the PDF goes out through the device's own share sheet
-   * instead, where WhatsApp, mail, Drive and everything else the phone knows
-   * about are already listed. What arrives at the other end is the recipe as a
-   * document, not a wall of text in a chat bubble.
+   * A `mailto:` or a wa.me link can carry text and nothing else, so the PDF
+   * goes out through the device's own share sheet, where WhatsApp, mail, Drive
+   * and everything else the phone knows about are already listed.
+   *
+   * The catch is that a phone will only open that sheet while it is still
+   * handling a tap, and drawing the page takes longer than a tap lasts.
+   * Anything that tries to do both at once loses the race, whether the page is
+   * drawn on the spot or fetched from something kept ready in advance — and a
+   * page kept ready is a page held in memory after the reader has moved on.
+   *
+   * So the two are separated. The first tap draws the page and says it is
+   * ready; the second sends it, with nothing awaited in between for the phone
+   * to object to. The file is held only between those two taps.
    */
-  async function sharePdf() {
+  async function preparePdf() {
     if (!shared) return;
     setSharing(true);
     setError(null);
     setNotice(null);
+    setReady(null);
 
     try {
-      prepared.current ??= buildPdf(shared);
       const name = recipeFileName(shared.title, "pdf");
-      const file = new File([await prepared.current], name, { type: "application/pdf" });
+      const file = new File([await recipeToPdf(shared)], name, { type: "application/pdf" });
 
       if (!navigator.canShare?.({ files: [file] })) {
         // A desktop browser without file sharing. The file itself is still
@@ -273,29 +186,34 @@ export function RecipeViewScreen({ id }: { id: string }) {
         return;
       }
 
-      try {
-        await navigator.share({ files: [file], title: shared.title });
-      } catch (e) {
-        // Closing the share sheet without choosing anything is a decision, not
-        // a failure, and the phone reports it as one.
-        if (e instanceof DOMException && e.name === "AbortError") return;
-
-        // The tap stopped counting as a gesture before the sheet could open —
-        // the page was still being drawn. The file exists either way, so it
-        // goes to the device rather than the reader getting the browser's own
-        // English refusal.
-        if (e instanceof DOMException && e.name === "NotAllowedError") {
-          saveFile(file, name);
-          setNotice("חלון השיתוף לא נפתח בזמן, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
-          return;
-        }
-        throw e;
-      }
+      setReady(file);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "שיתוף המתכון נכשל");
+      setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
     } finally {
       setSharing(false);
     }
+  }
+
+  /**
+   * Deliberately not `async`, and with no `await` before `share`. The tap that
+   * runs this is the thing the phone checks for, and waiting on anything at all
+   * here — even a promise that has already settled — is what spends it.
+   */
+  function sendPdf() {
+    const file = ready;
+    if (!file) return;
+    setReady(null);
+
+    navigator.share({ files: [file], title: file.name }).catch((e: unknown) => {
+      // Closing the sheet without choosing anything is a decision, not a
+      // failure, and the phone reports it as one.
+      if (e instanceof DOMException && e.name === "AbortError") return;
+
+      // Anything else and the file still exists, so it goes to the device
+      // rather than the reader getting the browser's own English refusal.
+      saveFile(file, file.name);
+      setNotice("השיתוף לא נפתח, אז המתכון ירד כקובץ — אפשר לצרף אותו להודעה.");
+    });
   }
 
   async function remove() {
@@ -346,11 +264,12 @@ export function RecipeViewScreen({ id }: { id: string }) {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="שיתוף המתכון כקובץ PDF"
+              aria-label={ready ? "שליחת המתכון" : "שיתוף המתכון כקובץ PDF"}
               disabled={sharing}
-              onClick={() => void sharePdf()}
+              onClick={ready ? sendPdf : () => void preparePdf()}
+              className={cn(ready && "bg-primary/15 text-primary")}
             >
-              {sharing ? <Loader2 className="animate-spin" /> : <Share2 />}
+              {sharing ? <Loader2 className="animate-spin" /> : ready ? <Send /> : <Share2 />}
             </Button>
 
             <Button
@@ -391,19 +310,37 @@ export function RecipeViewScreen({ id }: { id: string }) {
         {error && <Notice kind="error">{error}</Notice>}
         {notice && <Notice>{notice}</Notice>}
 
+        {/*
+          The second tap. It has to be a tap of its own — the phone opens its
+          share sheet only while it is handling one — so the page being ready
+          is said out loud rather than assumed.
+        */}
+        {ready && (
+          <Notice kind="success">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span>המתכון מוכן לשליחה.</span>
+              <Button size="sm" onClick={sendPdf}>
+                <Send />
+                שליחה
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setReady(null)}>
+                ביטול
+              </Button>
+            </span>
+          </Notice>
+        )}
+
         {recipe.image_url ? (
           <img
             src={recipe.image_url}
             alt={recipe.title}
             /*
-              The PDF has to read this photograph back off a canvas, which it
-              may only do when the picture was fetched with CORS. Asking for it
-              here too means both loads share one cache entry — without this
-              the page is drawn from a second, full-size download of a
-              photograph already on screen, which on mobile data is most of the
-              wait. Storage serves these with `Access-Control-Allow-Origin`.
+              Deliberately no `crossOrigin` here. Asking for the photograph with
+              CORS would let the PDF reuse this fetch instead of making its own,
+              but a picture whose stored response cannot satisfy the CORS check
+              then fails to render at all — an empty frame where the dish should
+              be. A second fetch inside the PDF is the cheaper mistake.
             */
-            crossOrigin="anonymous"
             className="max-h-96 w-full rounded-2xl object-cover"
           />
         ) : (
