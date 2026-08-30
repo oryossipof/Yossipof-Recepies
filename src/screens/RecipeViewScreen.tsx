@@ -1,11 +1,24 @@
-import { useState } from "react";
-import { ChefHat, CookingPot, Pencil, ShoppingCart, Star, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  ChefHat,
+  CookingPot,
+  FileDown,
+  Loader2,
+  Pencil,
+  Share2,
+  ShoppingCart,
+  Star,
+  Trash2,
+} from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useCookLog } from "@/hooks/use-cook-log";
 import { useRecipes } from "@/hooks/use-recipes";
+import { saveFile } from "@/lib/download";
 import { isEmptyNutrition, isNutritionStale } from "@/lib/nutrition";
+import { recipeToPdf } from "@/lib/recipe-pdf";
+import { recipeFileName, type SharedRecipe } from "@/lib/recipe-share";
 import { goHome, navigate } from "@/lib/router";
 import { isBlankHtml } from "@/lib/sanitize-html";
 import { cn } from "@/lib/utils";
@@ -13,6 +26,7 @@ import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CookedDifferentlyDialog } from "@/components/CookedDifferentlyDialog";
 import { SendToShoppingDialog } from "@/components/SendToShoppingDialog";
+import { ShareRecipeDialog } from "@/components/ShareRecipeDialog";
 import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
@@ -55,10 +69,37 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [shopping, setShopping] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recipe = recipes.find((r) => r.id === id);
+
+  /*
+   * The recipe as it leaves the app. Sharing it and printing it are the same
+   * recipe read out twice, so both are given one description of it rather than
+   * each reaching into the row and the category list for itself.
+   */
+  const shared = useMemo<SharedRecipe | null>(() => {
+    if (!recipe) return null;
+    return {
+      title: recipe.title,
+      ingredientsHtml: recipe.ingredients_html,
+      instructionsHtml: recipe.instructions_html,
+      notesHtml: recipe.notes_html,
+      imageUrl: recipe.image_url,
+      nutrition: recipe.nutrition,
+      author: recipe.author?.display_name ?? "משתמש",
+      categories: categories
+        .filter((category) => recipe.categoryIds.includes(category.id))
+        .map((category) => category.name),
+      // The link is worth carrying for the family, who have accounts and land
+      // straight on this screen. Everyone else still gets the whole recipe in
+      // the message above it.
+      url: `${window.location.origin}${window.location.pathname}#/recipe/${recipe.id}`,
+    };
+  }, [recipe, categories]);
 
   if (loading) {
     return (
@@ -91,6 +132,20 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const author = recipe.author?.display_name ?? "משתמש";
   const recipeCategories = categories.filter((c) => recipe.categoryIds.includes(c.id));
 
+  /** The recipe on paper, in the device's own downloads. */
+  async function downloadPdf() {
+    if (!shared) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      saveFile(await recipeToPdf(shared), recipeFileName(shared.title, "pdf"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "יצירת קובץ ה-PDF נכשלה");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   async function remove() {
     setDeleting(true);
     setError(null);
@@ -109,7 +164,14 @@ export function RecipeViewScreen({ id }: { id: string }) {
       <ScreenHeader
         title={recipe.title}
         actions={
-          <>
+          /*
+            Six things can be done to a recipe from here, and on a phone six
+            round buttons at the usual spacing would leave the title no room at
+            all. They are tightened into one group instead — the gaps closed up
+            and each button a little smaller on a narrow screen, back to full
+            size as soon as there is width for it.
+          */
+          <div className="flex shrink-0 items-center gap-0.5 [&_button]:size-8 sm:[&_button]:size-9">
             <Button
               variant="ghost"
               size="icon"
@@ -127,6 +189,25 @@ export function RecipeViewScreen({ id }: { id: string }) {
               onClick={() => setShopping(true)}
             >
               <ShoppingCart />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="שיתוף המתכון"
+              onClick={() => setSharing(true)}
+            >
+              <Share2 />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="הורדת המתכון כקובץ PDF"
+              disabled={downloading}
+              onClick={() => void downloadPdf()}
+            >
+              {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
             </Button>
 
             {isOwner && (
@@ -149,7 +230,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
                 </Button>
               </>
             )}
-          </>
+          </div>
         }
       />
 
@@ -284,6 +365,10 @@ export function RecipeViewScreen({ id }: { id: string }) {
         onClose={() => setShopping(false)}
         ingredientsHtml={recipe.ingredients_html}
       />
+
+      {shared && (
+        <ShareRecipeDialog open={sharing} onClose={() => setSharing(false)} recipe={shared} />
+      )}
 
       {recipe.nutrition && (
         <CookedDifferentlyDialog

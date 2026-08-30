@@ -17,3 +17,7 @@ dist-ssr
 .DS_Store
 *.local
 *.log
+
+# Capabilities presentation — lives in the GitHub Release, not in the repo
+Yossipof-Recipes-Capabilities.html
+Yossipof-Recipes-Capabilities.zip
