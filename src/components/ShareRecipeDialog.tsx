@@ -3,7 +3,7 @@ import { FileText, Loader2, Share2 } from "lucide-react";
 
 import { recipeToPdf } from "@/lib/recipe-pdf";
 import { recipeFileName, type SharedRecipe } from "@/lib/recipe-share";
-import { shareFile } from "@/lib/share";
+import { canCarry, isDismissal, refusalDetail } from "@/lib/share";
 import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,7 +63,20 @@ export function ShareRecipeDialog({
       (blob) => {
         if (cancelled) return;
         const name = recipeFileName(drawing.current.title, "pdf");
-        setFile(new File([blob], name, { type: "application/pdf" }));
+        const drawn = new File([blob], name, { type: "application/pdf" });
+
+        /*
+         * Asked here rather than on the sending tap. A browser can accept the
+         * empty stand-in the button's own check uses and still refuse the real
+         * document, and finding that out now costs nothing — whereas asking it
+         * one instruction before navigator.share would put something between
+         * the tap and the sheet, which is the one thing that must not happen.
+         */
+        if (!canCarry(drawn)) {
+          setError("הדפדפן הזה אינו מוכן לשאת את הקובץ");
+          return;
+        }
+        setFile(drawn);
       },
       (e: unknown) => {
         if (cancelled) return;
@@ -84,25 +97,28 @@ export function ShareRecipeDialog({
   }, [open]);
 
   /*
-   * Deliberately not an async function, and nothing is awaited before
-   * shareFile is called. The gesture that opened the sheet has to still be the
-   * gesture the browser is looking at; an await here — any await, however
-   * quick — hands the tap back and the sheet is refused.
+   * navigator.share is the first thing this handler does, and that is the
+   * whole design of it. The browser opens the sheet only while the tap that
+   * asked for it is still live, and this phone answered "NotAllowedError:
+   * Permission denied" when the call sat behind a helper function and a state
+   * update — neither of which awaits anything, and both of which it minded
+   * anyway. So there is no helper, no setState, and nothing but a property
+   * read ahead of the call. Everything that could be asked in advance was
+   * asked while the page was being drawn.
+   *
+   * Anything added above this line risks the sheet, however harmless it looks.
    */
   function send() {
     if (!file) return;
-    setError(null);
-    shareFile(file).then(onClose, (e: unknown) => {
-      /*
-       * The browser's own words, not ours. A share can be refused for several
-       * unrelated reasons — the gesture went stale, the browser says it
-       * carries files and then does not, the chosen app turned the document
-       * down — and they are indistinguishable from the outside. Swallowing
-       * the reason into one Hebrew sentence is what made the last attempt at
-       * this feature impossible to diagnose from a phone.
-       */
-      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      setError(`שיתוף המתכון נכשל — ${detail}`);
+    navigator.share({ files: [file] }).then(onClose, (e: unknown) => {
+      // Backing out of the sheet is a decision, not a failure.
+      if (isDismissal(e)) {
+        onClose();
+        return;
+      }
+      // The browser's own words: the refusals are indistinguishable without
+      // them, and guessing between them is what killed this feature before.
+      setError(`שיתוף המתכון נכשל — ${refusalDetail(e)}`);
     });
   }
 

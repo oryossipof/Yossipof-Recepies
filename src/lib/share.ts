@@ -8,19 +8,24 @@
  * system's, and the list of apps in it is the phone's business rather than
  * ours.
  *
- * Not every browser implements the half of the Web Share API that carries
- * files. Firefox for Android and the older Samsung Internet share text
- * happily and refuse documents, and desktop Firefox has neither. So the
- * capability is asked about before a share button is offered at all, rather
- * than discovered at the moment of the tap.
+ * Everything here is synchronous and answers a question. Nothing here calls
+ * navigator.share, and that is deliberate: the browser will only open the
+ * sheet while the tap that asked for it is still live, and it has proved
+ * unwilling to grant that through a helper. The call itself belongs inline in
+ * the click handler, as the first thing it does.
  */
+
+/** A stand-in document, for asking whether files can be carried at all. */
+function probeFile(): File {
+  return new File([], "recipe.pdf", { type: "application/pdf" });
+}
 
 /**
  * True when this browser will carry a file, not merely text.
  *
- * The question can only be asked with a file in hand, so a nought-byte PDF
- * stands in for the real one: `canShare` looks at the type and the count, not
- * at the bytes. The `try` is not decoration — Safari has answered this call
+ * Asked with a nought-byte stand-in, because the question has to be answered
+ * before there is a real document — it decides whether a share button is
+ * offered at all. The `try` is not decoration: Safari has answered this call
  * by throwing rather than returning false.
  */
 export function canShareFiles(): boolean {
@@ -28,48 +33,40 @@ export function canShareFiles(): boolean {
     if (typeof navigator === "undefined") return false;
     if (typeof navigator.share !== "function") return false;
     if (typeof navigator.canShare !== "function") return false;
-    return navigator.canShare({
-      files: [new File([], "recipe.pdf", { type: "application/pdf" })],
-    });
+    return navigator.canShare({ files: [probeFile()] });
   } catch {
     return false;
   }
 }
 
 /**
- * Opens the device's share sheet carrying the file.
+ * True when this browser will carry *this* document.
  *
- * Must be called inside a live tap: the browser gives a gesture about five
- * seconds of authority and refuses the sheet after that, so nothing may be
- * awaited between the tap and this call. Building the file is the caller's
- * job, and has to have happened already.
- *
- * The payload is the file and nothing else. A `title` alongside `files` is
- * legal, and several Android share targets nevertheless turn the whole
- * request down when they see one — the file's own name is what the receiving
- * app shows anyway, so the title bought nothing and cost the share.
- *
- * The real file is offered to `canShare` first, rather than the empty stand-in
- * the button's own check uses. A browser can wave through a nought-byte PDF
- * and still refuse the actual document, and being told that here — before the
- * sheet — is the difference between a reason and a mystery.
- *
- * Backing out of the sheet resolves rather than rejects. The browser reports
- * a dismissal as an AbortError, but choosing not to send is a decision, and
- * answering it with a red error would be telling the user off for changing
- * their mind.
+ * Worth asking separately, because a browser can wave through the empty
+ * stand-in above and still refuse the real thing. Asked while the page is
+ * being drawn rather than on the sending tap, so that nothing stands between
+ * that tap and the share sheet.
  */
-export async function shareFile(file: File): Promise<void> {
-  const payload = { files: [file] };
-
-  if (typeof navigator.canShare === "function" && !navigator.canShare(payload)) {
-    throw new Error("הדפדפן הזה אינו מוכן לשאת את הקובץ");
-  }
-
+export function canCarry(file: File): boolean {
   try {
-    await navigator.share(payload);
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") return;
-    throw e;
+    if (typeof navigator.canShare !== "function") return true;
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
   }
+}
+
+/**
+ * True when the share failed only because the person backed out of the sheet.
+ *
+ * Choosing not to send is a decision rather than a fault, and answering it
+ * with a red notice would be telling someone off for changing their mind.
+ */
+export function isDismissal(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
+}
+
+/** The browser's own account of a refusal, for a notice that can be acted on. */
+export function refusalDetail(e: unknown): string {
+  return e instanceof Error ? `${e.name}: ${e.message}` : String(e);
 }

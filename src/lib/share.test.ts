@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { canShareFiles, shareFile } from "./share";
+import { canCarry, canShareFiles, isDismissal, refusalDetail } from "./share";
 
 /**
  * jsdom ships no Web Share API at all, so every case here installs the exact
@@ -56,61 +56,60 @@ describe("canShareFiles", () => {
   });
 });
 
-describe("shareFile", () => {
+describe("canCarry", () => {
   const file = new File(["x"], "עוגה.pdf", { type: "application/pdf" });
 
-  it("hands over the file and nothing else", async () => {
-    const share = vi.fn(() => Promise.resolve());
-    browser({ share, canShare: () => true });
-
-    await shareFile(file);
-
-    // No title: several Android share targets refuse the whole request when
-    // one rides along beside the file.
-    expect(share).toHaveBeenCalledWith({ files: [file] });
-  });
-
-  it("asks about the real file, not a stand-in", async () => {
+  it("asks about the real document, not a stand-in", () => {
     const canShare = vi.fn((_data: ShareData) => true);
-    browser({ share: vi.fn(() => Promise.resolve()), canShare });
+    browser({ share: vi.fn(), canShare });
 
-    await shareFile(file);
-
+    expect(canCarry(file)).toBe(true);
     expect(canShare.mock.calls[0][0].files?.[0]).toBe(file);
   });
 
-  it("refuses before the sheet when the browser turns the file down", async () => {
-    const share = vi.fn(() => Promise.resolve());
-    browser({ share, canShare: () => false });
-
-    await expect(shareFile(file)).rejects.toThrow("אינו מוכן לשאת");
-    expect(share).not.toHaveBeenCalled();
+  it("says no when the browser turns this document down", () => {
+    // The interesting case: the empty stand-in was waved through and the real
+    // file is not, which is why the two questions are asked separately.
+    browser({ share: vi.fn(), canShare: () => false });
+    expect(canCarry(file)).toBe(false);
   });
 
-  it("still shares where canShare is missing altogether", async () => {
-    const share = vi.fn(() => Promise.resolve());
-    browser({ share, canShare: undefined });
-
-    await shareFile(file);
-
-    expect(share).toHaveBeenCalledWith({ files: [file] });
-  });
-
-  it("treats backing out of the sheet as done, not as a failure", async () => {
+  it("says no when asking throws", () => {
     browser({
-      canShare: () => true,
-      share: () => Promise.reject(new DOMException("cancelled", "AbortError")),
+      share: vi.fn(),
+      canShare: () => {
+        throw new Error("nope");
+      },
     });
-
-    await expect(shareFile(file)).resolves.toBeUndefined();
+    expect(canCarry(file)).toBe(false);
   });
 
-  it("passes a real failure on", async () => {
-    browser({
-      canShare: () => true,
-      share: () => Promise.reject(new DOMException("denied", "NotAllowedError")),
-    });
+  it("gives the benefit of the doubt where canShare is missing", () => {
+    // Nothing to ask, so the share itself is left to answer.
+    browser({ share: vi.fn(), canShare: undefined });
+    expect(canCarry(file)).toBe(true);
+  });
+});
 
-    await expect(shareFile(file)).rejects.toThrow("denied");
+describe("isDismissal", () => {
+  it("recognises backing out of the sheet", () => {
+    expect(isDismissal(new DOMException("cancelled", "AbortError"))).toBe(true);
+  });
+
+  it("does not mistake a refusal for a dismissal", () => {
+    expect(isDismissal(new DOMException("denied", "NotAllowedError"))).toBe(false);
+    expect(isDismissal(new Error("boom"))).toBe(false);
+    expect(isDismissal("boom")).toBe(false);
+  });
+});
+
+describe("refusalDetail", () => {
+  it("quotes the browser's own name and message", () => {
+    const e = new DOMException("Permission denied", "NotAllowedError");
+    expect(refusalDetail(e)).toBe("NotAllowedError: Permission denied");
+  });
+
+  it("copes with something that is not an error at all", () => {
+    expect(refusalDetail("odd")).toBe("odd");
   });
 });
