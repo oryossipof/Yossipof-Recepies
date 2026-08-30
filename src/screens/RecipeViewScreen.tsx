@@ -5,6 +5,7 @@ import {
   FileDown,
   Loader2,
   Pencil,
+  Share2,
   ShoppingCart,
   Star,
   Trash2,
@@ -20,11 +21,13 @@ import { recipeToPdf } from "@/lib/recipe-pdf";
 import { recipeFileName, type SharedRecipe } from "@/lib/recipe-share";
 import { goHome, navigate } from "@/lib/router";
 import { isBlankHtml } from "@/lib/sanitize-html";
+import { canShareFiles } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CookedDifferentlyDialog } from "@/components/CookedDifferentlyDialog";
 import { SendToShoppingDialog } from "@/components/SendToShoppingDialog";
+import { ShareRecipeDialog } from "@/components/ShareRecipeDialog";
 import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
@@ -67,9 +70,18 @@ export function RecipeViewScreen({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [shopping, setShopping] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * Whether this browser will carry a file at all. Asked once: it is a fact
+   * about the browser, which cannot change while the app is open, and a share
+   * button on a browser that refuses documents is a button that can only
+   * apologise. Where the answer is no there is simply no button.
+   */
+  const [canShare] = useState(canShareFiles);
 
   const recipe = recipes.find((r) => r.id === id);
 
@@ -158,11 +170,11 @@ export function RecipeViewScreen({ id }: { id: string }) {
         title={recipe.title}
         actions={
           /*
-            Five things can be done to a recipe from here, and on a phone that
-            many round buttons at the usual spacing would leave the title no
-            room at all. They are tightened into one group instead — the gaps closed up
-            and each button a little smaller on a narrow screen, back to full
-            size as soon as there is width for it.
+            Up to six things can be done to a recipe from here, and on a phone
+            that many round buttons at the usual spacing would leave the title
+            no room at all. They are tightened into one group instead — the
+            gaps closed up and each button a little smaller on a narrow screen,
+            back to full size as soon as there is width for it.
           */
           <div className="flex shrink-0 items-center gap-0.5 [&_button]:size-8 sm:[&_button]:size-9">
             <Button
@@ -183,6 +195,17 @@ export function RecipeViewScreen({ id }: { id: string }) {
             >
               <ShoppingCart />
             </Button>
+
+            {canShare && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="שיתוף המתכון"
+                onClick={() => setSharing(true)}
+              >
+                <Share2 />
+              </Button>
+            )}
 
             <Button
               variant="ghost"
@@ -355,6 +378,14 @@ export function RecipeViewScreen({ id }: { id: string }) {
         onClose={() => setShopping(false)}
         ingredientsHtml={recipe.ingredients_html}
       />
+
+      {shared && (
+        <ShareRecipeDialog
+          open={sharing}
+          onClose={() => setSharing(false)}
+          recipe={shared}
+        />
+      )}
 
       {recipe.nutrition && (
         <CookedDifferentlyDialog
