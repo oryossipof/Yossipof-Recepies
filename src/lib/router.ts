@@ -10,6 +10,7 @@ export type Route =
   | { name: "new" }
   | { name: "edit"; id: string }
   | { name: "cook"; id: string }
+  | { name: "category"; id: string }
   | { name: "categories" }
   | { name: "profile" };
 
@@ -26,6 +27,10 @@ function parse(hash: string): Route {
       return tail ? { name: "edit", id: tail } : HOME;
     case "cook":
       return tail ? { name: "cook", id: tail } : HOME;
+    // One category's recipes. The id is a UUID, or the word "none" for the
+    // recipes that belong to no category at all.
+    case "category":
+      return tail ? { name: "category", id: tail } : HOME;
     case "new":
       return { name: "new" };
     case "categories":
@@ -49,6 +54,14 @@ function parentOf(route: Route): string {
     case "edit":
     case "cook":
       return `/recipe/${route.id}`;
+    case "recipe": {
+      // A recipe opened from inside a category belongs, for as long as it is
+      // on screen, to that category: the arrow gives it back to the shelf it
+      // was taken from rather than dropping the person at the top of the
+      // list. Reached any other way it still climbs to the list.
+      const behind = entryBehind();
+      return behind?.startsWith("#/category/") ? behind : "/";
+    }
     default:
       return "/";
   }

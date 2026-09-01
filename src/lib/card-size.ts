@@ -81,3 +81,47 @@ export function canGrow(size: CardSize): boolean {
 export function canShrink(size: CardSize): boolean {
   return size !== CARD_SIZES[0];
 }
+
+/**
+ * How much a tile shows at each size.
+ *
+ * At four across, a name in the padding and type of the big tile is a
+ * paragraph in a matchbox, so the smaller sizes tighten the padding, drop the
+ * type down a step, and give up the second line — who uploaded a recipe, how
+ * many recipes a category holds. The photograph and the name are what a person
+ * scans by, and they are what survives all the way down.
+ *
+ * It lives here beside the grid because the recipe tiles and the category
+ * tiles are the same tile: the main screen swaps what is on the shelf, not how
+ * the shelf is drawn.
+ */
+export const CARD_TILE = {
+  tiny: {
+    body: "space-y-1 p-1.5",
+    title: "line-clamp-2 text-[0.7rem] font-semibold leading-tight",
+    meta: false,
+    star: "size-6 end-1 top-1",
+    starIcon: "size-3",
+  },
+  small: {
+    body: "space-y-1 p-2.5",
+    title: "line-clamp-2 text-xs font-semibold leading-snug",
+    meta: false,
+    star: "size-7 end-2 top-2",
+    starIcon: "size-3.5",
+  },
+  medium: {
+    body: "space-y-2 p-4",
+    title: "line-clamp-2 text-[0.95rem] font-semibold leading-snug",
+    meta: true,
+    star: "size-8 end-3 top-3",
+    starIcon: "size-4",
+  },
+  large: {
+    body: "space-y-2 p-4",
+    title: "line-clamp-2 text-lg font-semibold leading-snug",
+    meta: true,
+    star: "size-9 end-3 top-3",
+    starIcon: "size-[1.1rem]",
+  },
+} as const satisfies Record<CardSize, unknown>;

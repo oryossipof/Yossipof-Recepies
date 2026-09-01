@@ -186,7 +186,7 @@ export function CategoryFilter({
   );
 }
 
-function Chip({
+export function Chip({
   active,
   onClick,
   icon,

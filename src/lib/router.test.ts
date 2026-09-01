@@ -85,4 +85,27 @@ describe("returning from a screen", () => {
     await settle();
     expect(window.location.hash).toBe("#/recipe/abc");
   });
+
+
+  it("gives a recipe opened inside a category back to that category", async () => {
+    navigate("/category/soups");
+    navigate("/recipe/abc");
+
+    goBack();
+    await settle();
+    expect(window.location.hash).toBe("#/category/soups");
+
+    // And the category itself still climbs to the list.
+    goBack();
+    await settle();
+    expect(window.location.hash).toBe("#/");
+  });
+
+  it("still climbs straight to the list from a recipe opened off the list", async () => {
+    navigate("/recipe/abc");
+
+    goBack();
+    await settle();
+    expect(window.location.hash).toBe("#/");
+  });
 });
