@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Nutrition, Swap } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/errors";
 import { normalizeNutrition } from "@/lib/nutrition";
 
 import { useAuth } from "./use-auth";
@@ -30,10 +31,18 @@ export function useCookLog(recipeId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /** Only the newest load writes — the same guard the recipe list uses. */
+  const latestRun = useRef(0);
+
   const reload = useCallback(async () => {
+    const run = ++latestRun.current;
+    const current = () => run === latestRun.current;
+
     if (!userId) {
-      setEntries([]);
-      setLoading(false);
+      if (current()) {
+        setEntries([]);
+        setLoading(false);
+      }
       return;
     }
 
@@ -47,6 +56,8 @@ export function useCookLog(recipeId: string) {
         .order("created_at", { ascending: false });
       if (readError) throw readError;
 
+      if (!current()) return;
+
       // Two entries can share a day, so the newest-written comes first within it.
       setEntries(
         (data ?? []).map((entry) => ({
@@ -56,9 +67,9 @@ export function useCookLog(recipeId: string) {
         })),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "טעינת יומן הבישולים נכשלה");
+      if (current()) setError(errorMessage(e, "טעינת יומן הבישולים נכשלה"));
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [recipeId, userId]);
 

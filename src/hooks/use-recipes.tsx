@@ -4,12 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Nutrition } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/errors";
 import { normalizeNutrition } from "@/lib/nutrition";
 
 import { useAuth } from "./use-auth";
@@ -58,10 +60,28 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /*
+   * Which load is allowed to write what it found.
+   *
+   * Several loads can be in the air at once: a screen asks for a reload while
+   * one is already running, signing in starts another, and in development
+   * StrictMode runs the mounting effect twice over. They are not cancelled, so
+   * without a guard the slowest one wins whatever it happens to be carrying —
+   * and a failure arriving after a success painted "טעינת המתכונים נכשלה" in
+   * red above a shelf of recipes that had loaded perfectly well. Only the
+   * newest run may touch the state; an overtaken one finishes quietly.
+   */
+  const latestRun = useRef(0);
+
   const reload = useCallback(async () => {
+    const run = ++latestRun.current;
+    const current = () => run === latestRun.current;
+
     if (!userId) {
-      setRecipes([]);
-      setLoading(false);
+      if (current()) {
+        setRecipes([]);
+        setLoading(false);
+      }
       return;
     }
 
@@ -90,6 +110,8 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
         else categoriesByRecipe.set(link.recipe_id, [link.category_id]);
       }
 
+      if (!current()) return;
+
       setRecipes(
         (recipesRes.data ?? []).map((recipe) => ({
           ...recipe,
@@ -100,9 +122,9 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
         })),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "טעינת המתכונים נכשלה");
+      if (current()) setError(errorMessage(e, "טעינת המתכונים נכשלה"));
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [userId]);
 

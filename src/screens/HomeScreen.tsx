@@ -5,9 +5,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useProfile } from "@/hooks/use-profile";
 import { useRecipes } from "@/hooks/use-recipes";
+import { CARD_SIZE_GRID, readCardSize, writeCardSize, type CardSize } from "@/lib/card-size";
 import { navigate } from "@/lib/router";
 import { htmlToText } from "@/lib/sanitize-html";
+import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
+import { CardSizeControl } from "@/components/CardSizeControl";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -25,6 +28,19 @@ export function HomeScreen() {
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
+
+  /*
+   * How large the tiles are drawn. This is a view setting, so it stays on the
+   * device alongside the light/dark choice rather than in the database: the
+   * screen in your hand decides how much fits on it, and nothing about the
+   * recipes themselves changes with it.
+   */
+  const [cardSize, setCardSize] = useState<CardSize>(readCardSize);
+
+  const chooseCardSize = (next: CardSize) => {
+    setCardSize(next);
+    writeCardSize(next);
+  };
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -73,11 +89,13 @@ export function HomeScreen() {
     <div className="min-h-dvh pb-16">
       <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto w-full max-w-lg px-4 py-3 sm:max-w-2xl sm:px-6 lg:max-w-5xl lg:px-8 xl:max-w-6xl">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl" aria-hidden>
+          <div className="flex items-center gap-1">
+            <span className="me-2 text-2xl" aria-hidden>
               🍲
             </span>
             <h1 className="flex-1 text-xl font-bold tracking-tight">מתכונים</h1>
+
+            <CardSizeControl value={cardSize} onChange={chooseCardSize} />
 
             <Button
               variant="ghost"
@@ -94,7 +112,7 @@ export function HomeScreen() {
               aria-label="הגדרות משתמש"
               title={profile?.display_name ?? "הגדרות משתמש"}
               onClick={() => navigate("/profile")}
-              className="rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="ms-1.5 rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar
                 name={profile?.display_name ?? user?.email}
@@ -167,7 +185,7 @@ export function HomeScreen() {
         {error && <Notice kind="error">{error}</Notice>}
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+          <div className={cn("grid", CARD_SIZE_GRID[cardSize])}>
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />
             ))}
@@ -175,9 +193,14 @@ export function HomeScreen() {
         ) : visible.length === 0 ? (
           <EmptyState filtering={filtering} />
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5">
+          <div className={cn("grid", CARD_SIZE_GRID[cardSize])}>
             {visible.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} onToggleFavorite={toggleFavorite} />
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                size={cardSize}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </div>
         )}
