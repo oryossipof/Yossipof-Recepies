@@ -9,6 +9,7 @@ import {
   GStar,
   GTrash,
 } from "@/components/GradientIcon";
+import { HeaderToolButton, HeaderTools } from "@/components/HeaderTools";
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useCookLog } from "@/hooks/use-cook-log";
@@ -170,72 +171,66 @@ export function RecipeViewScreen({ id }: { id: string }) {
           /*
             Up to six things can be done to a recipe from here, and on a phone
             that many round buttons at the usual spacing would leave the title
-            no room at all. They are tightened into one group instead — the
-            gaps closed up and each button a little smaller on a narrow screen,
-            back to full size as soon as there is width for it.
+            no room at all. They are gathered into the same outlined pill the
+            main screen frames its view buttons with — one object rather than
+            six loose icons crowding the name of the recipe, and the two
+            screens now carry the same furniture.
           */
-          <div className="flex shrink-0 items-center gap-0.5 [&_button]:size-8 sm:[&_button]:size-9">
-            <Button
-              variant="ghost"
-              size="icon"
+          <HeaderTools label="פעולות על המתכון">
+            <HeaderToolButton
               aria-label={recipe.isFavorite ? "הסרה מהמועדפים" : "הוספה למועדפים"}
               aria-pressed={recipe.isFavorite}
               onClick={() => void toggleFavorite(recipe.id)}
             >
               <GStar filled={recipe.isFavorite} />
-            </Button>
+            </HeaderToolButton>
 
-            <Button
-              variant="ghost"
-              size="icon"
+            <HeaderToolButton
               aria-label="הוספה לרשימת הקניות"
+              title="הוספה לרשימת הקניות"
               onClick={() => setShopping(true)}
             >
               <GCart />
-            </Button>
+            </HeaderToolButton>
 
             {canShare && (
-              <Button
-                variant="ghost"
-                size="icon"
+              <HeaderToolButton
                 aria-label="שיתוף המתכון"
+                title="שיתוף המתכון"
                 onClick={() => setSharing(true)}
               >
                 <GShare />
-              </Button>
+              </HeaderToolButton>
             )}
 
-            <Button
-              variant="ghost"
-              size="icon"
+            <HeaderToolButton
               aria-label="הורדת המתכון כקובץ PDF"
+              title="הורדה כ-PDF"
               disabled={downloading}
               onClick={() => void downloadPdf()}
             >
               {downloading ? <Loader2 className="animate-spin" /> : <GDownload />}
-            </Button>
+            </HeaderToolButton>
 
             {isOwner && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <HeaderToolButton
                   aria-label="עריכת המתכון"
+                  title="עריכה"
                   onClick={() => navigate(`/edit/${recipe.id}`)}
                 >
                   <GPencil />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                </HeaderToolButton>
+                <HeaderToolButton
                   aria-label="מחיקת המתכון"
+                  title="מחיקה"
                   onClick={() => setConfirming(true)}
                 >
                   <GTrash />
-                </Button>
+                </HeaderToolButton>
               </>
             )}
-          </div>
+          </HeaderTools>
         }
       />
 
