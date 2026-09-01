@@ -26,6 +26,12 @@ export function HeaderTools({ label, children }: { label: string; children: Reac
  * One button inside the frame. Smaller than a standalone icon button, since
  * four of them plus the frame have to share a phone's header with the title
  * and the avatar.
+ *
+ * Each button brings its own colour rather than inheriting one, so that four
+ * grey outlines in a row become four things a person can aim at without
+ * reading. The colours are borrowed from the objects the icons draw — a
+ * manila tag, the glass of a magnifier — and each has a lighter value for the
+ * dark palette, where a mid-tone would sink into the header.
  */
 export function HeaderToolButton({ className, ...props }: ButtonProps) {
   return (
@@ -33,35 +39,21 @@ export function HeaderToolButton({ className, ...props }: ButtonProps) {
       variant="ghost"
       size="icon"
       {...props}
-      className={cn(
-        "size-8 text-muted-foreground hover:bg-accent/60 hover:text-foreground [&_svg]:size-[1.05rem]",
-        className,
-      )}
+      className={cn("size-8 hover:bg-accent/60 [&_svg]:size-[1.05rem]", className)}
     />
   );
 }
 
 /**
- * The picture on a tool button, as an emoji.
- *
- * The shopping-list app labels its header buttons this way — 📱 for the phone
- * number, 📥 for import, ☀️/🌙 for the theme — and these buttons follow it, so
- * that the two apps in the house read as one family.
- *
- * The cost, chosen knowingly: an emoji is drawn by the phone, not by the app,
- * so the header is not pixel-identical on an Android and on an iPhone. It is
- * hidden from screen readers, since every button already carries a real label.
+ * What each button is coloured. Written out as whole class strings because
+ * Tailwind reads the source for the classes it generates, so a class assembled
+ * at runtime would never be built.
  */
-export function ToolEmoji({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span aria-hidden className={cn("leading-none", className)}>
-      {children}
-    </span>
-  );
-}
+export const TOOL_COLORS = {
+  /** The view switch: violet, the one cool colour that is not the app's own blue. */
+  view: "text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300",
+  /** The two magnifiers: the blue of glass. */
+  zoom: "text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300",
+  /** The category manager: the amber of a paper tag. */
+  tags: "text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300",
+} as const;
