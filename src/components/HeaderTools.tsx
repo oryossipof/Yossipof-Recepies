@@ -40,3 +40,28 @@ export function HeaderToolButton({ className, ...props }: ButtonProps) {
     />
   );
 }
+
+/**
+ * The picture on a tool button, as an emoji.
+ *
+ * The shopping-list app labels its header buttons this way — 📱 for the phone
+ * number, 📥 for import, ☀️/🌙 for the theme — and these buttons follow it, so
+ * that the two apps in the house read as one family.
+ *
+ * The cost, chosen knowingly: an emoji is drawn by the phone, not by the app,
+ * so the header is not pixel-identical on an Android and on an iPhone. It is
+ * hidden from screen readers, since every button already carries a real label.
+ */
+export function ToolEmoji({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span aria-hidden className={cn("leading-none", className)}>
+      {children}
+    </span>
+  );
+}

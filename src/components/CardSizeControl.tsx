@@ -1,17 +1,16 @@
-import { ZoomIn, ZoomOut } from "lucide-react";
-
 import { CARD_SIZE_LABELS, canGrow, canShrink, stepCardSize, type CardSize } from "@/lib/card-size";
 
-import { HeaderToolButton } from "./HeaderTools";
+import { HeaderToolButton, ToolEmoji } from "./HeaderTools";
 
 /**
  * The two buttons in the header that make the tiles bigger or smaller.
  *
- * Just the icons: they sit in a header that already carries the search box and
- * the add button, and a word naming the current size would take room from both
- * without telling anyone anything they cannot see by looking at the grid. The
- * magnifiers say which way each button goes on their own, which matters on a
- * right-to-left screen where a plus and a minus have no agreed side. The size
+ * Just the pictures: they sit in a header that already carries the search box
+ * and the add button, and a word naming the current size would take room from
+ * both without telling anyone anything they cannot see by looking at the grid.
+ * The magnifier carries its sign beside it because no emoji means "smaller",
+ * and the sign is what tells the two buttons apart — which matters on a
+ * right-to-left screen, where a plus and a minus have no agreed side. The size
  * is still named for a screen reader on each of the two buttons.
  */
 export function CardSizeControl({
@@ -29,7 +28,7 @@ export function CardSizeControl({
         disabled={!canShrink(value)}
         onClick={() => onChange(stepCardSize(value, -1))}
       >
-        <ZoomOut />
+        <ToolEmoji className="text-[0.78rem] font-bold text-foreground">🔍−</ToolEmoji>
       </HeaderToolButton>
 
       <HeaderToolButton
@@ -38,7 +37,7 @@ export function CardSizeControl({
         disabled={!canGrow(value)}
         onClick={() => onChange(stepCardSize(value, 1))}
       >
-        <ZoomIn />
+        <ToolEmoji className="text-[0.78rem] font-bold text-foreground">🔍+</ToolEmoji>
       </HeaderToolButton>
     </>
   );

@@ -14,7 +14,7 @@ import { Avatar } from "@/components/Avatar";
 import { CardSizeControl } from "@/components/CardSizeControl";
 import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { HeaderToolButton, HeaderTools } from "@/components/HeaderTools";
+import { HeaderToolButton, HeaderTools, ToolEmoji } from "@/components/HeaderTools";
 import { ListModeControl } from "@/components/ListModeControl";
 import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -169,7 +169,7 @@ export function HomeScreen() {
                 title="ניהול קטגוריות"
                 onClick={() => navigate("/categories")}
               >
-                <Tags />
+                <ToolEmoji className="text-[0.95rem]">🏷️</ToolEmoji>
               </HeaderToolButton>
             </HeaderTools>
 
