@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
-import {
-  ChefHat,
-  CookingPot,
-  FileDown,
-  Loader2,
-  Pencil,
-  Share2,
-  ShoppingCart,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { ChefHat, CookingPot, Loader2, Pencil } from "lucide-react";
 
+import {
+  GCart,
+  GDownload,
+  GPencil,
+  GShare,
+  GStar,
+  GTrash,
+} from "@/components/GradientIcon";
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useCookLog } from "@/hooks/use-cook-log";
@@ -184,7 +182,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
               aria-pressed={recipe.isFavorite}
               onClick={() => void toggleFavorite(recipe.id)}
             >
-              <Star className={cn(recipe.isFavorite && "fill-star text-star")} />
+              <GStar filled={recipe.isFavorite} />
             </Button>
 
             <Button
@@ -193,7 +191,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
               aria-label="הוספה לרשימת הקניות"
               onClick={() => setShopping(true)}
             >
-              <ShoppingCart />
+              <GCart />
             </Button>
 
             {canShare && (
@@ -203,7 +201,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
                 aria-label="שיתוף המתכון"
                 onClick={() => setSharing(true)}
               >
-                <Share2 />
+                <GShare />
               </Button>
             )}
 
@@ -214,7 +212,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
               disabled={downloading}
               onClick={() => void downloadPdf()}
             >
-              {downloading ? <Loader2 className="animate-spin" /> : <FileDown />}
+              {downloading ? <Loader2 className="animate-spin" /> : <GDownload />}
             </Button>
 
             {isOwner && (
@@ -225,7 +223,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
                   aria-label="עריכת המתכון"
                   onClick={() => navigate(`/edit/${recipe.id}`)}
                 >
-                  <Pencil />
+                  <GPencil />
                 </Button>
                 <Button
                   variant="ghost"
@@ -233,7 +231,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
                   aria-label="מחיקת המתכון"
                   onClick={() => setConfirming(true)}
                 >
-                  <Trash2 className="text-destructive" />
+                  <GTrash />
                 </Button>
               </>
             )}

@@ -1,8 +1,7 @@
-import { ZoomIn, ZoomOut } from "lucide-react";
-
 import { CARD_SIZE_LABELS, canGrow, canShrink, stepCardSize, type CardSize } from "@/lib/card-size";
 
-import { HeaderToolButton, TOOL_COLORS } from "./HeaderTools";
+import { GZoomIn, GZoomOut } from "./GradientIcon";
+import { HeaderToolButton } from "./HeaderTools";
 
 /**
  * The two buttons in the header that make the tiles bigger or smaller.
@@ -28,9 +27,8 @@ export function CardSizeControl({
         title="הקטנה"
         disabled={!canShrink(value)}
         onClick={() => onChange(stepCardSize(value, -1))}
-        className={TOOL_COLORS.zoom}
       >
-        <ZoomOut />
+        <GZoomOut />
       </HeaderToolButton>
 
       <HeaderToolButton
@@ -38,9 +36,8 @@ export function CardSizeControl({
         title="הגדלה"
         disabled={!canGrow(value)}
         onClick={() => onChange(stepCardSize(value, 1))}
-        className={TOOL_COLORS.zoom}
       >
-        <ZoomIn />
+        <GZoomIn />
       </HeaderToolButton>
     </>
   );

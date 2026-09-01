@@ -1,5 +1,6 @@
 import { ChefHat } from "lucide-react";
 
+import { IconGradients } from "@/components/GradientIcon";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { CategoriesProvider } from "@/hooks/use-categories";
 import { ProfileProvider } from "@/hooks/use-profile";
@@ -18,6 +19,13 @@ import { RecoveryScreen } from "@/screens/RecoveryScreen";
 export default function App() {
   return (
     <AuthProvider>
+      {/*
+        The gradients every drawn icon fills itself with. They are defined once
+        here rather than inside each icon: an SVG gradient is referenced by id
+        from anywhere in the document, and without this element in the tree
+        every coloured icon in the app renders black.
+      */}
+      <IconGradients />
       <Shell />
     </AuthProvider>
   );

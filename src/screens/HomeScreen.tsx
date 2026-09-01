@@ -14,7 +14,8 @@ import { Avatar } from "@/components/Avatar";
 import { CardSizeControl } from "@/components/CardSizeControl";
 import { CategoryCard } from "@/components/CategoryCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { HeaderToolButton, HeaderTools, TOOL_COLORS } from "@/components/HeaderTools";
+import { GTag } from "@/components/GradientIcon";
+import { HeaderToolButton, HeaderTools } from "@/components/HeaderTools";
 import { ListModeControl } from "@/components/ListModeControl";
 import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -168,9 +169,8 @@ export function HomeScreen() {
                 aria-label="ניהול קטגוריות"
                 title="ניהול קטגוריות"
                 onClick={() => navigate("/categories")}
-                className={TOOL_COLORS.tags}
               >
-                <Tags />
+                <GTag />
               </HeaderToolButton>
             </HeaderTools>
 
