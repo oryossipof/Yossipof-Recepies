@@ -4,7 +4,7 @@ import { Plus, Search, Tags, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCategories } from "@/hooks/use-categories";
 import { useProfile } from "@/hooks/use-profile";
-import { useRecipes, type RecipeWithMeta } from "@/hooks/use-recipes";
+import { useRecipes } from "@/hooks/use-recipes";
 import { CARD_SIZE_GRID, readCardSize, writeCardSize, type CardSize } from "@/lib/card-size";
 import { UNCATEGORIZED, readListMode, writeListMode, type ListMode } from "@/lib/list-mode";
 import { isSearching, matchesName } from "@/lib/recipe-search";
@@ -20,9 +20,6 @@ import { Notice } from "@/components/Notice";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-/** How many recipe photographs a category tile tiles into its cover. */
-const COVERS_PER_CATEGORY = 4;
 
 /** The main screen: every recipe, or every category, as tiles. */
 export function HomeScreen() {
@@ -282,7 +279,6 @@ export function HomeScreen() {
                       key={shelf.id}
                       name={shelf.name}
                       count={shelf.recipes.length}
-                      covers={coversOf(shelf.recipes)}
                       size={cardSize}
                       onOpen={() => navigate(`/category/${shelf.id}`)}
                     />
@@ -341,17 +337,6 @@ function Section({
       <div className={cn("grid", CARD_SIZE_GRID[size])}>{children}</div>
     </section>
   );
-}
-
-/** The first few photographs on a shelf, which become its cover. */
-function coversOf(recipes: RecipeWithMeta[]): string[] {
-  const urls: string[] = [];
-  for (const recipe of recipes) {
-    if (!recipe.image_url) continue;
-    urls.push(recipe.image_url);
-    if (urls.length === COVERS_PER_CATEGORY) break;
-  }
-  return urls;
 }
 
 function EmptyCategories({ searching, hasRecipes }: { searching: boolean; hasRecipes: boolean }) {
