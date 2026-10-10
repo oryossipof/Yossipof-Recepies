@@ -10,6 +10,8 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/errors";
+import { ensureFreshSession } from "@/lib/session";
 
 import { useAuth } from "./use-auth";
 
@@ -36,8 +38,9 @@ type ProfileContextValue = {
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { session, user } = useAuth();
   const userId = user?.id ?? null;
+  const accessToken = session?.access_token ?? null;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +56,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     void (async () => {
+      // The name and picture in the header come from here, so this read runs
+      // at start-up along with everything else — behind a token that has been
+      // seen to first.
+      await ensureFreshSession();
+
       const { data } = await supabase
         .from("recipe_profiles")
         .select("*")
@@ -83,11 +91,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [userId, user?.email]);
+    // A replaced token means the previous read may have been refused: the name
+    // and picture in the header are worth asking for again.
+  }, [userId, user?.email, accessToken]);
 
   const save = useCallback(
     async (changes: ProfileChanges) => {
       if (!userId) throw new Error("צריך להתחבר");
+      await ensureFreshSession();
 
       const { data, error } = await supabase
         .from("recipe_profiles")
@@ -96,7 +107,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         .select("*")
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(errorMessage(error, "שמירת הפרופיל נכשלה"));
       setProfile(data);
     },
     [userId],

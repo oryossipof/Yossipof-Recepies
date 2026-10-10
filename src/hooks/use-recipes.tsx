@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database, Nutrition } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/errors";
 import { normalizeNutrition } from "@/lib/nutrition";
+import { ensureFreshSession, withFreshSession } from "@/lib/session";
 
 import { useAuth } from "./use-auth";
 
@@ -53,8 +54,9 @@ type RecipesContextValue = {
 const RecipesContext = createContext<RecipesContextValue | null>(null);
 
 export function RecipesProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const accessToken = session?.access_token ?? null;
 
   const [recipes, setRecipes] = useState<RecipeWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,17 +91,23 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
     try {
       // Four small reads in parallel and one client-side join: recipes point at
       // auth.users rather than at the profiles table, so PostgREST cannot embed
-      // the author for us.
-      const [recipesRes, profilesRes, linksRes, favoritesRes] = await Promise.all([
-        supabase.from("recipes").select("*").order("created_at", { ascending: false }),
-        supabase.from("recipe_profiles").select("*"),
-        supabase.from("recipe_category_links").select("*"),
-        supabase.from("recipe_favorites").select("recipe_id"),
-      ]);
+      // the author for us. All four travel with the same access token, so they
+      // are renewed and retried together.
+      const [recipesRes, profilesRes, linksRes, favoritesRes] = await withFreshSession(
+        async () => {
+          const answers = await Promise.all([
+            supabase.from("recipes").select("*").order("created_at", { ascending: false }),
+            supabase.from("recipe_profiles").select("*"),
+            supabase.from("recipe_category_links").select("*"),
+            supabase.from("recipe_favorites").select("recipe_id"),
+          ]);
 
-      const failed =
-        recipesRes.error ?? profilesRes.error ?? linksRes.error ?? favoritesRes.error;
-      if (failed) throw failed;
+          const failed = answers[0].error ?? answers[1].error ?? answers[2].error ?? answers[3].error;
+          if (failed) throw failed;
+
+          return answers;
+        },
+      );
 
       const profiles = new Map((profilesRes.data ?? []).map((p) => [p.id, p]));
       const favorites = new Set((favoritesRes.data ?? []).map((f) => f.recipe_id));
@@ -128,10 +136,17 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
     }
   }, [userId]);
 
+  /*
+   * Reading again behind a new token. Nothing here uses the token itself — the
+   * client attaches it — but a token that has just been replaced is a token
+   * that may have been refused a moment ago, with the screen left saying so.
+   * Asking again is what turns that red line back into recipes without the
+   * page having to be reloaded by hand.
+   */
   useEffect(() => {
     setLoading(true);
     void reload();
-  }, [reload]);
+  }, [reload, accessToken]);
 
   /** Replaces a recipe's category links with exactly the ids given. */
   const syncCategories = useCallback(async (recipeId: string, categoryIds: string[]) => {
@@ -152,6 +167,7 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
   const createRecipe = useCallback(
     async (input: RecipeInput) => {
       if (!userId) throw new Error("צריך להתחבר כדי להוסיף מתכון");
+      await ensureFreshSession();
 
       const { categoryIds, ...fields } = input;
       const { data, error: insertError } = await supabase
@@ -180,6 +196,8 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
 
   const updateRecipe = useCallback(
     async (id: string, input: RecipeInput) => {
+      await ensureFreshSession();
+
       const { categoryIds, ...fields } = input;
       const { error: updateError } = await supabase
         .from("recipes")
@@ -202,6 +220,8 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
 
   const deleteRecipe = useCallback(
     async (id: string) => {
+      await ensureFreshSession();
+
       const { error: deleteError } = await supabase.from("recipes").delete().eq("id", id);
       if (deleteError) throw deleteError;
       setRecipes((current) => current.filter((r) => r.id !== id));
@@ -218,6 +238,10 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
       const next = !current.isFavorite;
       // Optimistic: the star should respond instantly.
       setRecipes((list) => list.map((r) => (r.id === id ? { ...r, isFavorite: next } : r)));
+
+      // A star that quietly springs back is the whole of this failure, so the
+      // token is seen to before the write rather than diagnosed after it.
+      await ensureFreshSession();
 
       const { error: writeError } = next
         ? await supabase.from("recipe_favorites").insert({ user_id: userId, recipe_id: id })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { errorMessage } from "./errors";
+import { EXPIRED_SESSION_MESSAGE, errorMessage, isExpiredSessionError } from "./errors";
 
 describe("errorMessage", () => {
   it("reads a real Error", () => {
@@ -30,5 +30,30 @@ describe("errorMessage", () => {
 
   it("passes a thrown string through", () => {
     expect(errorMessage("משהו השתבש", "נכשל")).toBe("משהו השתבש");
+  });
+
+  it("says what to do about an expired token instead of repeating the server", () => {
+    expect(errorMessage({ message: "JWT expired", code: "PGRST301" }, "נכשל")).toBe(
+      EXPIRED_SESSION_MESSAGE,
+    );
+  });
+});
+
+describe("isExpiredSessionError", () => {
+  it("knows the database's answer", () => {
+    expect(isExpiredSessionError({ message: "JWT expired", code: "PGRST301" })).toBe(true);
+  });
+
+  it("knows the storage and function answers, whatever their wording", () => {
+    expect(isExpiredSessionError({ message: "Invalid JWT" })).toBe(true);
+    expect(isExpiredSessionError(new Error("jwt is expired"))).toBe(true);
+    expect(isExpiredSessionError({ message: "Token has expired" })).toBe(true);
+  });
+
+  it("does not mistake another refusal for an expired token", () => {
+    expect(isExpiredSessionError({ message: "permission denied", code: "42501" })).toBe(false);
+    expect(isExpiredSessionError(new Error("Failed to fetch"))).toBe(false);
+    expect(isExpiredSessionError("jwt expired")).toBe(false);
+    expect(isExpiredSessionError(null)).toBe(false);
   });
 });
