@@ -11,11 +11,13 @@
 /**
  * What a person is told when the request was refused because the token it
  * travelled with had run out. The app renews the token by itself and tries the
- * request again, so this sentence only appears when even that did not help —
- * and then it says the one thing that does help, instead of showing the words
- * "JWT expired" to someone who came to read a recipe.
+ * request again, so this sentence only appears when even that did not help.
+ * It does not say to reload the page: on a phone the app is installed to the
+ * home screen, where there is no address bar to reload from. Trying again is
+ * what renews the token, and the main screen offers that beside the message.
  */
-export const EXPIRED_SESSION_MESSAGE = "ההתחברות פגה. רעננו את הדף כדי להיכנס מחדש.";
+export const EXPIRED_SESSION_MESSAGE =
+  "ההתחברות פגה. נסו שוב, ואם זה חוזר — התנתקו והתחברו מחדש.";
 
 /**
  * Whether this is the server refusing a request because its access token had
