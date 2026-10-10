@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Nutrition } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/errors";
+import { isUploadedRecipeImage } from "@/lib/images";
 import { normalizeNutrition } from "@/lib/nutrition";
 import { ensureFreshSession, withFreshSession } from "@/lib/session";
 
@@ -47,6 +48,7 @@ type RecipesContextValue = {
   reload: () => Promise<void>;
   createRecipe: (input: RecipeInput) => Promise<string>;
   updateRecipe: (id: string, input: RecipeInput) => Promise<void>;
+  setRecipeImage: (id: string, imageUrl: string) => Promise<void>;
   deleteRecipe: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
 };
@@ -218,6 +220,30 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
     [syncCategories, reload],
   );
 
+  /**
+   * The photo, on anyone's recipe. Everything else about a recipe belongs to
+   * whoever uploaded it, but a picture of the dish as it actually came out is
+   * worth more than the question of who first typed the recipe in — so this
+   * one field is the household's. Row permissions cannot open a single column,
+   * hence the database function: it touches image_url and nothing else, and
+   * takes nothing but a photo uploaded to the app's own bucket.
+   */
+  const setRecipeImage = useCallback(async (id: string, imageUrl: string) => {
+    if (!isUploadedRecipeImage(imageUrl)) {
+      throw new Error("אפשר להחליף רק לתמונה שהועלתה לאפליקציה");
+    }
+
+    await ensureFreshSession();
+
+    const { error: rpcError } = await supabase.rpc("recipe_set_image", {
+      p_recipe_id: id,
+      p_image_url: imageUrl,
+    });
+    if (rpcError) throw rpcError;
+
+    setRecipes((list) => list.map((r) => (r.id === id ? { ...r, image_url: imageUrl } : r)));
+  }, []);
+
   const deleteRecipe = useCallback(
     async (id: string) => {
       await ensureFreshSession();
@@ -268,10 +294,21 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
       reload,
       createRecipe,
       updateRecipe,
+      setRecipeImage,
       deleteRecipe,
       toggleFavorite,
     }),
-    [recipes, loading, error, reload, createRecipe, updateRecipe, deleteRecipe, toggleFavorite],
+    [
+      recipes,
+      loading,
+      error,
+      reload,
+      createRecipe,
+      updateRecipe,
+      setRecipeImage,
+      deleteRecipe,
+      toggleFavorite,
+    ],
   );
 
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;

@@ -66,6 +66,20 @@ async function upload(bucket: string, path: string, blob: Blob): Promise<string>
   return data.publicUrl;
 }
 
+/*
+ * The public path every recipe photo we upload sits under. Changing the photo
+ * on somebody else's recipe goes through a database function that accepts
+ * nothing but a file in this bucket, so a recipe can never be made to point at
+ * some arbitrary address on the web. The same check is made here, where a
+ * refusal can still be a sentence beside the button.
+ */
+const RECIPE_IMAGE_PATH = "/storage/v1/object/public/recipe-images/";
+
+/** Whether this address is a photo uploaded to the app's own image bucket. */
+export function isUploadedRecipeImage(url: string | null): boolean {
+  return url !== null && url.includes(RECIPE_IMAGE_PATH);
+}
+
 /** Uploads a recipe photo and returns its public URL. */
 export async function uploadRecipeImage(userId: string, file: File): Promise<string> {
   const blob = await compress(file, RECIPE_MAX_WIDTH);
