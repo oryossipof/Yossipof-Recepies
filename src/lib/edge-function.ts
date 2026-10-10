@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { ensureFreshSession } from "@/lib/session";
 
 /**
  * One call to a Supabase Edge Function, with the function's own words kept.
@@ -13,6 +14,10 @@ export async function invokeFunction<T>(
   body: Record<string, unknown>,
   fallback: string,
 ): Promise<T> {
+  // The function is called with the user's token, and parsing a recipe is a
+  // long way into the work to be turned away over it.
+  await ensureFreshSession();
+
   const { data, error } = await supabase.functions.invoke(name, { body });
 
   if (error) {

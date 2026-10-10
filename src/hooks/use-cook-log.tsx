@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database, Nutrition, Swap } from "@/integrations/supabase/types";
 import { errorMessage } from "@/lib/errors";
 import { normalizeNutrition } from "@/lib/nutrition";
+import { ensureFreshSession, withFreshSession } from "@/lib/session";
 
 import { useAuth } from "./use-auth";
 
@@ -24,8 +25,9 @@ export type NewCookLogEntry = {
 };
 
 export function useCookLog(recipeId: string) {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const accessToken = session?.access_token ?? null;
 
   const [entries, setEntries] = useState<CookLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,13 +50,16 @@ export function useCookLog(recipeId: string) {
 
     setError(null);
     try {
-      const { data, error: readError } = await supabase
-        .from("recipe_cook_log")
-        .select("*")
-        .eq("recipe_id", recipeId)
-        .order("cooked_on", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (readError) throw readError;
+      const data = await withFreshSession(async () => {
+        const { data: rows, error: readError } = await supabase
+          .from("recipe_cook_log")
+          .select("*")
+          .eq("recipe_id", recipeId)
+          .order("cooked_on", { ascending: false })
+          .order("created_at", { ascending: false });
+        if (readError) throw readError;
+        return rows;
+      });
 
       if (!current()) return;
 
@@ -73,14 +78,22 @@ export function useCookLog(recipeId: string) {
     }
   }, [recipeId, userId]);
 
+  /*
+   * Reading again behind a new token. Nothing here uses the token itself — the
+   * client attaches it — but a token that has just been replaced is a token
+   * that may have been refused a moment ago, with the screen left saying so.
+   * Asking again is what turns that red line back into recipes without the
+   * page having to be reloaded by hand.
+   */
   useEffect(() => {
     setLoading(true);
     void reload();
-  }, [reload]);
+  }, [reload, accessToken]);
 
   const addEntry = useCallback(
     async (entry: NewCookLogEntry) => {
       if (!userId) throw new Error("צריך להתחבר כדי לשמור ביומן");
+      await ensureFreshSession();
 
       const { error: insertError } = await supabase
         .from("recipe_cook_log")
@@ -93,6 +106,8 @@ export function useCookLog(recipeId: string) {
   );
 
   const removeEntry = useCallback(async (id: string) => {
+    await ensureFreshSession();
+
     const { error: deleteError } = await supabase
       .from("recipe_cook_log")
       .delete()

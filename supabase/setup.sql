@@ -267,6 +267,42 @@ CREATE POLICY "own recipe delete"
   USING ((SELECT auth.uid()) = user_id);
 
 
+-- ---------- החלפת תמונת המתכון ----------
+-- התמונה היא היוצא מן הכלל היחיד מכלל הבעלות: מי שבישל מתכון של מישהו אחר
+-- וצילם איך הוא יצא אצלו יכול להחליף את התמונה, בלי ששאר המתכון ייפתח לו
+-- לעריכה. מדיניות RLS חלה על השורה כולה ולא על עמודה בודדת, ולכן זה נעשה
+-- דרך פונקציה: היא רצה בהרשאות של בעליה, נוגעת ב-image_url בלבד, ומקבלת
+-- רק כתובת של קובץ שהועלה לבאקט התמונות של האפליקציה — כדי שלא יהיה אפשר
+-- להצביע ממתכון אל כתובת חיצונית כלשהי.
+
+CREATE OR REPLACE FUNCTION public.recipe_set_image(p_recipe_id UUID, p_image_url TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF (SELECT auth.uid()) IS NULL THEN
+    RAISE EXCEPTION 'צריך להתחבר כדי להחליף תמונה';
+  END IF;
+
+  IF p_image_url IS NULL
+     OR position('/storage/v1/object/public/recipe-images/' IN p_image_url) = 0 THEN
+    RAISE EXCEPTION 'כתובת התמונה אינה קובץ שהועלה לאפליקציה';
+  END IF;
+
+  UPDATE public.recipes SET image_url = p_image_url WHERE id = p_recipe_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'המתכון לא נמצא';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recipe_set_image(UUID, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.recipe_set_image(UUID, TEXT) TO authenticated;
+
+
 -- ---------- שיוך לקטגוריות ----------
 
 DROP POLICY IF EXISTS "links readable by signed in users" ON public.recipe_category_links;

@@ -10,6 +10,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isSessionStale, renewSession } from "@/lib/session";
 
 type AuthContextValue = {
   session: Session | null;
@@ -33,21 +34,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
+    let live = true;
+
+    /**
+     * Lets a session into the app — but not before its token is usable. The
+     * session kept on the device outlives its own token: a phone that slept
+     * through the night wakes the app with an hour-old token and every read
+     * behind it is refused. Renewing here, while the splash is still up, is
+     * what keeps that from being the first thing the user sees. If it cannot
+     * be renewed — offline, or the refresh token is gone — the app opens
+     * anyway and says what went wrong where it went wrong, rather than
+     * sitting on the splash for ever.
+     */
+    async function accept(next: Session | null) {
+      const session = next && isSessionStale(next) ? ((await renewSession()) ?? next) : next;
+      if (!live) return;
+      setSession(session);
+      setLoading(false);
+    }
+
     // Subscribe first, then read the stored session, so an event that fires
     // during start-up is never missed.
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
-      setSession(next);
-      setLoading(false);
       if (event === "PASSWORD_RECOVERY") setRecovering(true);
       if (event === "SIGNED_OUT") setRecovering(false);
+      // Supabase holds its own lock for as long as this callback runs, so
+      // asking it for anything has to wait for the next tick — a renewal
+      // started from inside the callback would wait for a lock held by the
+      // callback itself.
+      setTimeout(() => void accept(next), 0);
     });
 
-    supabase.auth.getSession().then(({ data: { session: stored } }) => {
-      setSession(stored);
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session: stored } }) => void accept(stored));
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      live = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   const finishRecovery = useCallback(() => setRecovering(false), []);

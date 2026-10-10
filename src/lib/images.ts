@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { ensureFreshSession } from "@/lib/session";
 
 // Photos come off phone cameras at several megabytes. They are resized and
 // re-encoded in the browser before they ever reach Supabase Storage, which
@@ -52,6 +53,10 @@ async function compress(file: File, maxWidth: number): Promise<Blob> {
 }
 
 async function upload(bucket: string, path: string, blob: Blob): Promise<string> {
+  // Storage checks the same token the database does, and a photo refused over
+  // an expired one would lose a picture the person has already chosen.
+  await ensureFreshSession();
+
   const { error } = await supabase.storage
     .from(bucket)
     .upload(path, blob, { contentType: "image/jpeg", upsert: true });
@@ -59,6 +64,20 @@ async function upload(bucket: string, path: string, blob: Blob): Promise<string>
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
+}
+
+/*
+ * The public path every recipe photo we upload sits under. Changing the photo
+ * on somebody else's recipe goes through a database function that accepts
+ * nothing but a file in this bucket, so a recipe can never be made to point at
+ * some arbitrary address on the web. The same check is made here, where a
+ * refusal can still be a sentence beside the button.
+ */
+const RECIPE_IMAGE_PATH = "/storage/v1/object/public/recipe-images/";
+
+/** Whether this address is a photo uploaded to the app's own image bucket. */
+export function isUploadedRecipeImage(url: string | null): boolean {
+  return url !== null && url.includes(RECIPE_IMAGE_PATH);
 }
 
 /** Uploads a recipe photo and returns its public URL. */

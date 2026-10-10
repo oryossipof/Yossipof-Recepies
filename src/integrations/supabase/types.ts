@@ -191,7 +191,18 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      /**
+       * Points a recipe at a different photo, whoever uploaded the recipe.
+       * Owner-only writes are enforced per row rather than per column, so the
+       * photo — the one field the whole household may change — goes through
+       * this function instead of a plain update.
+       */
+      recipe_set_image: {
+        Args: { p_recipe_id: string; p_image_url: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

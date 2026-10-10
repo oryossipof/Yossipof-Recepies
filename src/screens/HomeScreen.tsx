@@ -27,7 +27,25 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { categories } = useCategories();
-  const { recipes, loading, error, toggleFavorite } = useRecipes();
+  const { recipes, loading, error, reload, toggleFavorite } = useRecipes();
+
+  /*
+   * A load asked for by hand, after one failed. The app is installed to the
+   * home screen, where there is no address bar and no pull-to-refresh, so
+   * "reload the page" is advice that cannot be taken: the way out of a failed
+   * load has to be on the screen itself. Skeletons go up while it runs, the
+   * same as the first load.
+   */
+  const [retrying, setRetrying] = useState(false);
+
+  async function retry() {
+    setRetrying(true);
+    try {
+      await reload();
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   const [query, setQuery] = useState("");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
@@ -254,9 +272,22 @@ export function HomeScreen() {
           />
         )}
 
-        {error && <Notice kind="error">{error}</Notice>}
+        {error && (
+          <Notice kind="error">
+            <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              {error}
+              <button
+                type="button"
+                onClick={() => void retry()}
+                className="font-bold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                נסו שוב
+              </button>
+            </span>
+          </Notice>
+        )}
 
-        {loading ? (
+        {loading || retrying ? (
           <div className={cn("grid", CARD_SIZE_GRID[cardSize])}>
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="aspect-[3/4] w-full rounded-2xl" />

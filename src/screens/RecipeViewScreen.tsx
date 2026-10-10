@@ -30,6 +30,7 @@ import { ShareRecipeDialog } from "@/components/ShareRecipeDialog";
 import { CookLogSection } from "@/components/CookLogSection";
 import { Notice } from "@/components/Notice";
 import { NutritionPanel } from "@/components/NutritionPanel";
+import { RecipePhoto } from "@/components/RecipePhoto";
 import { RichText } from "@/components/RichText";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
@@ -236,26 +237,7 @@ export function RecipeViewScreen({ id }: { id: string }) {
 
       <main className="mx-auto w-full max-w-2xl space-y-8 px-4 py-8 sm:px-6">
         {error && <Notice kind="error">{error}</Notice>}
-        {recipe.image_url ? (
-          <img
-            src={recipe.image_url}
-            alt={recipe.title}
-            /*
-              Deliberately no `crossOrigin` here. Asking for the photograph with
-              CORS would let the PDF reuse this fetch instead of making its own,
-              but a picture whose stored response cannot satisfy the CORS check
-              then fails to render at all — an empty frame where the dish should
-              be. A second fetch inside the PDF is the cheaper mistake.
-            */
-            className="max-h-96 w-full rounded-2xl object-cover"
-          />
-        ) : (
-          <div className="flex h-32 w-full items-center justify-center rounded-2xl border border-border bg-muted">
-            <span className="text-5xl opacity-45" aria-hidden>
-              🥘
-            </span>
-          </div>
-        )}
+        <RecipePhoto recipeId={recipe.id} title={recipe.title} imageUrl={recipe.image_url} />
 
         <div className="space-y-3">
           <h2 className="text-3xl font-bold leading-tight">{recipe.title}</h2>

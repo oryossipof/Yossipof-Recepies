@@ -10,6 +10,8 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { errorMessage } from "@/lib/errors";
+import { ensureFreshSession, withFreshSession } from "@/lib/session";
 
 import { useAuth } from "./use-auth";
 
@@ -31,8 +33,9 @@ const CategoriesContext = createContext<CategoriesContextValue | null>(null);
 const DUPLICATE = "23505";
 
 export function CategoriesProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const accessToken = session?.access_token ?? null;
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,26 +49,40 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
     }
 
     setError(null);
-    const { data, error: readError } = await supabase
-      .from("recipe_categories")
-      .select("*")
-      .order("name");
-
-    if (readError) setError(readError.message);
-    else setCategories(data ?? []);
+    try {
+      const rows = await withFreshSession(async () => {
+        const { data, error: readError } = await supabase
+          .from("recipe_categories")
+          .select("*")
+          .order("name");
+        if (readError) throw readError;
+        return data ?? [];
+      });
+      setCategories(rows);
+    } catch (e) {
+      setError(errorMessage(e, "טעינת הקטגוריות נכשלה"));
+    }
     setLoading(false);
   }, [userId]);
 
+  /*
+   * Reading again behind a new token. Nothing here uses the token itself — the
+   * client attaches it — but a token that has just been replaced is a token
+   * that may have been refused a moment ago, with the screen left saying so.
+   * Asking again is what turns that red line back into recipes without the
+   * page having to be reloaded by hand.
+   */
   useEffect(() => {
     setLoading(true);
     void reload();
-  }, [reload]);
+  }, [reload, accessToken]);
 
   const addCategory = useCallback(
     async (name: string) => {
       if (!userId) throw new Error("צריך להתחבר");
       const trimmed = name.trim();
       if (!trimmed) throw new Error("שם הקטגוריה ריק");
+      await ensureFreshSession();
 
       const { data, error: insertError } = await supabase
         .from("recipe_categories")
@@ -75,7 +92,9 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
 
       if (insertError) {
         throw new Error(
-          insertError.code === DUPLICATE ? "קטגוריה בשם הזה כבר קיימת" : insertError.message,
+          insertError.code === DUPLICATE
+            ? "קטגוריה בשם הזה כבר קיימת"
+            : errorMessage(insertError, "הוספת הקטגוריה נכשלה"),
         );
       }
 
@@ -90,6 +109,7 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
   const renameCategory = useCallback(async (id: string, name: string) => {
     const trimmed = name.trim();
     if (!trimmed) throw new Error("שם הקטגוריה ריק");
+    await ensureFreshSession();
 
     const { error: updateError } = await supabase
       .from("recipe_categories")
@@ -98,7 +118,9 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
 
     if (updateError) {
       throw new Error(
-        updateError.code === DUPLICATE ? "קטגוריה בשם הזה כבר קיימת" : updateError.message,
+        updateError.code === DUPLICATE
+          ? "קטגוריה בשם הזה כבר קיימת"
+          : errorMessage(updateError, "שינוי שם הקטגוריה נכשל"),
       );
     }
 
@@ -111,11 +133,13 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
 
   /** Deleting a category also removes it from every recipe (ON DELETE CASCADE). */
   const deleteCategory = useCallback(async (id: string) => {
+    await ensureFreshSession();
+
     const { error: deleteError } = await supabase
       .from("recipe_categories")
       .delete()
       .eq("id", id);
-    if (deleteError) throw new Error(deleteError.message);
+    if (deleteError) throw new Error(errorMessage(deleteError, "מחיקת הקטגוריה נכשלה"));
 
     setCategories((current) => current.filter((c) => c.id !== id));
   }, []);
