@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { clockSkewFetch } from "@/lib/clock-skew-fetch";
+
 import type { Database } from "./types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -26,4 +28,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     detectSessionInUrl: true,
     flowType: "pkce",
   },
+  // Rides out the second or two when a fresh token is "issued at future" by
+  // the database's clock — see clock-skew-fetch.ts.
+  global: { fetch: clockSkewFetch() },
 });
